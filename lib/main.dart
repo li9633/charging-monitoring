@@ -1,121 +1,296 @@
-import 'package:flutter/material.dart';
+// =================================================================
+// 充电桩离线检测 - Flutter 应用
+// 功能:
+//   1. Tab 筛选: 全部 / 离线（默认） / 在线
+//   2. 设置页: 配置 wx-token、默认桩号、位置标签、充电记录拉取开关
+//   3. 点击「开始检测」后批处理查询所有桩状态
+// =================================================================
 
-void main() {
-  runApp(const MyApp());
+import 'package:flutter/material.dart';
+import 'services/pile_service.dart';
+import 'services/settings_service.dart';
+import 'pages/settings_page.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final settings = await SettingsService.create();
+  runApp(MyApp(settings: settings));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final SettingsService settings;
 
-  // This widget is the root of your application.
+  const MyApp({super.key, required this.settings});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: '充电桩离线检测',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: PileCheckerPage(settings: settings),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class PileCheckerPage extends StatefulWidget {
+  final SettingsService settings;
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+  const PileCheckerPage({super.key, required this.settings});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<PileCheckerPage> createState() => _PileCheckerPageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _PileCheckerPageState extends State<PileCheckerPage>
+    with SingleTickerProviderStateMixin {
+  late PileService _service;
+  bool _isLoading = false;
+  CheckResult? _result;
+  String? _errorMessage;
+  late TabController _tabController;
 
-  void _incrementCounter() {
+  static const _tabs = ['全部', '离线', '在线'];
+  static const _defaultTabIndex = 1; // 默认选中「离线」
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: _tabs.length, vsync: this, initialIndex: _defaultTabIndex);
+    _rebuildService();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _rebuildService() {
+    _service = PileService(
+      wxToken: widget.settings.wxToken,
+      pileTagMap: widget.settings.pileTagMap,
+      defaultPileNo: widget.settings.defaultPileNo,
+      useChargeRecord: widget.settings.useChargeRecord,
+    );
+  }
+
+  Future<void> _startCheck() async {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _isLoading = true;
+      _result = null;
+      _errorMessage = null;
     });
+
+    try {
+      _rebuildService();
+      final pileInfo = await _service.getPileList();
+      final checkResult = await _service.checkOfflinePiles(pileInfo);
+      setState(() {
+        _result = checkResult;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = '检测失败: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openSettings() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SettingsPage(settings: widget.settings),
+      ),
+    );
+    // 从设置页返回后，刷新服务配置
+    _rebuildService();
+  }
+
+  List<PileStatus> _filteredPiles() {
+    if (_result == null) return [];
+    final all = _result!.allPiles;
+    switch (_tabController.index) {
+      case 0:
+        return all;
+      case 1:
+        return all.where((p) => p.isOffline).toList();
+      case 2:
+        return all.where((p) => p.isOnline).toList();
+      default:
+        return all;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
+        title: const Text('充电桩离线检测'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: _openSettings,
+            tooltip: '设置',
+          ),
+        ],
+        bottom: _result != null
+            ? TabBar(
+                controller: _tabController,
+                tabs: _tabs.map((t) => Tab(text: t)).toList(),
+                onTap: (_) => setState(() {}),
+              )
+            : null,
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+      body: _buildBody(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _isLoading ? null : _startCheck,
+        icon: _isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Icon(Icons.electrical_services),
+        label: Text(_isLoading ? '检测中...' : '开始检测'),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_result == null && _errorMessage == null && !_isLoading) {
+      return Center(
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
+            Icon(Icons.ev_station, size: 80,
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4)),
+            const SizedBox(height: 16),
+            Text('点击下方按钮开始检测',
+                style: TextStyle(fontSize: 16,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+            const SizedBox(height: 8),
+            Text('将自动检测所有充电桩的在线状态',
+                style: TextStyle(fontSize: 14,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4))),
           ],
         ),
+      );
+    }
+
+    if (_isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 24),
+            Text('正在检测充电桩状态...',
+                style: TextStyle(fontSize: 16,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
+          ],
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 60, color: Colors.red[300]),
+              const SizedBox(height: 16),
+              Text(_errorMessage!, textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16, color: Colors.red)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final filtered = _filteredPiles();
+    final checkResult = _result!;
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Card(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Icon(Icons.timer, size: 28),
+                  const SizedBox(width: 12),
+                  Text('总耗时: ${checkResult.elapsedMs} 毫秒',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  Text('共 ${checkResult.allPiles.length} 个桩',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '${_tabs[_tabController.index]} ${filtered.length} 个充电桩',
+            style: TextStyle(
+              fontSize: 16,
+              color: _tabController.index == 1 && filtered.isEmpty ? Colors.green : Colors.blueGrey,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: filtered.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle, size: 60, color: Colors.green[400]),
+                        const SizedBox(height: 16),
+                        Text(
+                          _tabController.index == 1 ? '所有充电桩均在线' : '无匹配结果',
+                          style: const TextStyle(fontSize: 18),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) => _buildPileCard(filtered[index]),
+                  ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+    );
+  }
+
+  Widget _buildPileCard(PileStatus pile) {
+    final locationDisplay = pile.tag.isNotEmpty ? '[${pile.tag}] ${pile.location}' : pile.location;
+    final isOffline = pile.isOffline;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: isOffline ? Colors.red[100] : Colors.green[100],
+          child: Icon(Icons.ev_station, color: isOffline ? Colors.red[700] : Colors.green[700]),
+        ),
+        title: Text('充电桩编号: ${pile.pileNo}',
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text('位置: $locationDisplay\n状态: ${isOffline ? "离线" : "在线"}',
+            style: const TextStyle(fontSize: 13)),
+        isThreeLine: true,
       ),
     );
   }
