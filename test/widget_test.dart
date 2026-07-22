@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:flutter_application_1/main.dart';
-import 'package:flutter_application_1/services/settings_service.dart';
+import 'package:charging_monitoring/main.dart';
+import 'package:charging_monitoring/services/settings_service.dart';
 
 void main() {
   testWidgets('App renders correctly', (WidgetTester tester) async {

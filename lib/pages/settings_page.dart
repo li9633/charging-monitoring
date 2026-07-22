@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../services/settings_service.dart';
+import 'about_page.dart';
 
 class SettingsPage extends StatefulWidget {
   final SettingsService settings;
@@ -84,6 +85,22 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // 关于
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.info_outline, color: Colors.teal),
+              title: const Text('关于',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('应用信息与开发者'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AboutPage()),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
           // WX-Token
           Card(
             child: Padding(
