@@ -286,22 +286,68 @@ class MonitorPageState extends State<MonitorPage>
   }
 
   Widget _buildPileCard(PileStatus pile) {
-    final locationDisplay =
-        pile.tag.isNotEmpty ? '[${pile.tag}] ${pile.location}' : pile.location;
     final isOffline = pile.isOffline;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: isOffline ? Colors.red[100] : Colors.green[100],
-          child: Icon(Icons.ev_station,
-              color: isOffline ? Colors.red[700] : Colors.green[700]),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 第一行：编号 + 状态圆点 + 标签
+            Row(
+              children: [
+                Icon(Icons.ev_station,
+                    size: 20,
+                    color: isOffline ? Colors.red[700] : Colors.green[700]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('充电桩 ${pile.pileNo}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14)),
+                ),
+                // 标签
+                if (pile.tag.isNotEmpty)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(pile.tag,
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.teal,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                const SizedBox(width: 8),
+                // 状态指示
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isOffline ? Colors.red : Colors.green,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // 第二行：位置
+            Text(pile.location,
+                style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
+            // 第三行：状态文字
+            Text(isOffline ? '离线' : '在线',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: isOffline ? Colors.red[600] : Colors.green[600],
+                    fontWeight: FontWeight.w500)),
+          ],
         ),
-        title: Text('充电桩编号: ${pile.pileNo}',
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('位置: $locationDisplay\n状态: ${isOffline ? "离线" : "在线"}',
-            style: const TextStyle(fontSize: 13)),
-        isThreeLine: true,
       ),
     );
   }
