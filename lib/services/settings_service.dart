@@ -10,6 +10,7 @@ class SettingsService {
   static const _keyDefaultPileNo = 'default_pile_no';
   static const _keyPileTagMap = 'pile_tag_map';
   static const _keyUseChargeRecord = 'use_charge_record';
+  static const _keyDefaultFilter = 'default_filter';
 
   // 默认值
   static const String defaultWxToken =
@@ -30,6 +31,7 @@ class SettingsService {
   };
 
   static const bool defaultUseChargeRecord = true;
+  static const int defaultFilterIndex = 1;
 
   final SharedPreferences _prefs;
 
@@ -77,5 +79,12 @@ class SettingsService {
 
   Future<void> setUseChargeRecord(bool value) async {
     await _prefs.setBool(_keyUseChargeRecord, value);
+  }
+
+  int get defaultFilter =>
+      _prefs.getInt(_keyDefaultFilter) ?? defaultFilterIndex;
+
+  Future<void> setDefaultFilter(int value) async {
+    await _prefs.setInt(_keyDefaultFilter, value);
   }
 }

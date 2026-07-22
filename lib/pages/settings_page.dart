@@ -7,8 +7,9 @@ import '../services/settings_service.dart';
 
 class SettingsPage extends StatefulWidget {
   final SettingsService settings;
+  final VoidCallback? onSettingsChanged;
 
-  const SettingsPage({super.key, required this.settings});
+  const SettingsPage({super.key, required this.settings, this.onSettingsChanged});
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -17,6 +18,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _wxTokenController;
   late bool _useChargeRecord;
+  late int _defaultFilter;
   late List<_MapEntry> _pileNoEntries;
   late List<_MapEntry> _tagEntries;
 
@@ -25,6 +27,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _wxTokenController = TextEditingController(text: widget.settings.wxToken);
     _useChargeRecord = widget.settings.useChargeRecord;
+    _defaultFilter = widget.settings.defaultFilter;
     _pileNoEntries = widget.settings.defaultPileNo.entries
         .map((e) => _MapEntry(key: e.key, value: e.value))
         .toList();
@@ -36,34 +39,23 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void dispose() {
     _wxTokenController.dispose();
-    for (final e in _pileNoEntries) {
-      e.keyController.dispose();
-      e.valueController.dispose();
-    }
-    for (final e in _tagEntries) {
-      e.keyController.dispose();
-      e.valueController.dispose();
-    }
     super.dispose();
   }
 
   Future<void> _save() async {
     await widget.settings.setWxToken(_wxTokenController.text.trim());
     await widget.settings.setUseChargeRecord(_useChargeRecord);
+    await widget.settings.setDefaultFilter(_defaultFilter);
 
     final pileNoMap = <String, String>{};
     for (final e in _pileNoEntries) {
-      final k = e.keyController.text.trim();
-      final v = e.valueController.text.trim();
-      if (k.isNotEmpty && v.isNotEmpty) pileNoMap[k] = v;
+      if (e.key.isNotEmpty && e.value.isNotEmpty) pileNoMap[e.key] = e.value;
     }
     await widget.settings.setDefaultPileNo(pileNoMap);
 
     final tagMap = <String, String>{};
     for (final e in _tagEntries) {
-      final k = e.keyController.text.trim();
-      final v = e.valueController.text.trim();
-      if (k.isNotEmpty && v.isNotEmpty) tagMap[k] = v;
+      if (e.key.isNotEmpty && e.value.isNotEmpty) tagMap[e.key] = e.value;
     }
     await widget.settings.setPileTagMap(tagMap);
 
@@ -71,7 +63,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('设置已保存，下次检测生效')),
       );
-      Navigator.pop(context);
+      widget.onSettingsChanged?.call();
     }
   }
 
@@ -145,17 +137,46 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 12),
 
+          // 默认筛选
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('监测页默认筛选',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('应用启动后监测页面默认显示哪个分类',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                  const SizedBox(height: 12),
+                  SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment(value: 0, label: Text('全部')),
+                      ButtonSegment(value: 1, label: Text('离线')),
+                      ButtonSegment(value: 2, label: Text('在线')),
+                    ],
+                    selected: {_defaultFilter},
+                    onSelectionChanged: (v) => setState(() => _defaultFilter = v.first),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
           // 默认桩号配置
           _buildSection(
             title: '默认桩号配置',
             subtitle: '桩号 → 位置（拉取失败或关闭充电记录时使用）',
             entries: _pileNoEntries,
-            onAdd: () => setState(() => _pileNoEntries.add(_MapEntry(key: '', value: ''))),
-            onRemove: (i) => setState(() {
-              _pileNoEntries[i].keyController.dispose();
-              _pileNoEntries[i].valueController.dispose();
-              _pileNoEntries.removeAt(i);
+            keyHint: '桩号',
+            valueHint: '位置',
+            onAdd: (key, value) => setState(() => _pileNoEntries.add(_MapEntry(key: key, value: value))),
+            onEdit: (i, key, value) => setState(() {
+              _pileNoEntries[i] = _MapEntry(key: key, value: value);
             }),
+            onRemove: (i) => setState(() => _pileNoEntries.removeAt(i)),
           ),
           const SizedBox(height: 12),
 
@@ -164,12 +185,13 @@ class _SettingsPageState extends State<SettingsPage> {
             title: '位置标签',
             subtitle: '桩号 → 标签（如「地下室」「1号楼」）',
             entries: _tagEntries,
-            onAdd: () => setState(() => _tagEntries.add(_MapEntry(key: '', value: ''))),
-            onRemove: (i) => setState(() {
-              _tagEntries[i].keyController.dispose();
-              _tagEntries[i].valueController.dispose();
-              _tagEntries.removeAt(i);
+            keyHint: '桩号',
+            valueHint: '标签',
+            onAdd: (key, value) => setState(() => _tagEntries.add(_MapEntry(key: key, value: value))),
+            onEdit: (i, key, value) => setState(() {
+              _tagEntries[i] = _MapEntry(key: key, value: value);
             }),
+            onRemove: (i) => setState(() => _tagEntries.removeAt(i)),
           ),
           const SizedBox(height: 80),
         ],
@@ -181,8 +203,11 @@ class _SettingsPageState extends State<SettingsPage> {
     required String title,
     required String subtitle,
     required List<_MapEntry> entries,
-    required VoidCallback onAdd,
-    required void Function(int) onRemove,
+    required String keyHint,
+    required String valueHint,
+    required void Function(String key, String value) onAdd,
+    required void Function(int index, String key, String value) onEdit,
+    required void Function(int index) onRemove,
   }) {
     return Card(
       child: Padding(
@@ -196,65 +221,168 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text(subtitle, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                      Text(title,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(subtitle,
+                          style: TextStyle(
+                              fontSize: 13, color: Colors.grey[600])),
                     ],
                   ),
                 ),
-                IconButton(onPressed: onAdd, icon: const Icon(Icons.add_circle, color: Colors.teal)),
+                IconButton(
+                  onPressed: () => _showEntryDialog(
+                    title: '添加$title',
+                    keyHint: keyHint,
+                    valueHint: valueHint,
+                    onConfirm: (key, value) => onAdd(key, value),
+                  ),
+                  icon: const Icon(Icons.add_circle, color: Colors.teal),
+                ),
               ],
             ),
             const SizedBox(height: 8),
-            ...entries.asMap().entries.map((e) {
-              final i = e.key;
-              final entry = e.value;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: TextField(
-                        controller: entry.keyController,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: '桩号',
-                          isDense: true,
-                        ),
+            if (entries.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text('暂无数据，点击 + 添加',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+              )
+            else
+              ...entries.asMap().entries.map((e) {
+                final i = e.key;
+                final entry = e.value;
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => _showEntryDialog(
+                      title: '编辑',
+                      keyHint: keyHint,
+                      valueHint: valueHint,
+                      initialKey: entry.key,
+                      initialValue: entry.value,
+                      onConfirm: (key, value) => onEdit(i, key, value),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Text(entry.key,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 14)),
+                          ),
+                          const Icon(Icons.arrow_forward,
+                              size: 16, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 3,
+                            child: Text(entry.value,
+                                style: TextStyle(
+                                    fontSize: 13, color: Colors.grey[700]),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle,
+                                color: Colors.red, size: 20),
+                            onPressed: () => onRemove(i),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 3,
-                      child: TextField(
-                        controller: entry.valueController,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          hintText: '位置/标签',
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.remove_circle, color: Colors.red),
-                      onPressed: () => onRemove(i),
-                    ),
-                  ],
-                ),
-              );
-            }),
+                  ),
+                );
+              }),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _showEntryDialog({
+    required String title,
+    required String keyHint,
+    required String valueHint,
+    String initialKey = '',
+    String initialValue = '',
+    required void Function(String key, String value) onConfirm,
+  }) async {
+    String? resultKey;
+    String? resultValue;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final keyCtrl = TextEditingController(text: initialKey);
+        final valueCtrl = TextEditingController(text: initialValue);
+        final formKey = GlobalKey<FormState>();
+
+        return AlertDialog(
+          title: Text(title),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: keyCtrl,
+                  decoration: InputDecoration(
+                    labelText: keyHint,
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? '不能为空' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: valueCtrl,
+                  decoration: InputDecoration(
+                    labelText: valueHint,
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  maxLines: 3,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? '不能为空' : null,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  resultKey = keyCtrl.text.trim();
+                  resultValue = valueCtrl.text.trim();
+                  Navigator.pop(ctx);
+                }
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (resultKey != null) {
+      onConfirm(resultKey!, resultValue!);
+    }
+  }
 }
 
 class _MapEntry {
-  final TextEditingController keyController;
-  final TextEditingController valueController;
+  final String key;
+  final String value;
 
-  _MapEntry({required String key, required String value})
-      : keyController = TextEditingController(text: key),
-        valueController = TextEditingController(text: value);
+  const _MapEntry({required this.key, required this.value});
 }

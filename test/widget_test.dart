@@ -12,6 +12,8 @@ void main() {
     await tester.pumpWidget(MyApp(settings: settings));
 
     expect(find.text('充电桩离线检测'), findsOneWidget);
-    expect(find.text('开始检测'), findsOneWidget);
+    expect(find.text('监测'), findsOneWidget);
+    expect(find.text('日志'), findsOneWidget);
+    expect(find.text('设置'), findsOneWidget);
   });
 }

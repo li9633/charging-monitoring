@@ -10,8 +10,8 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'log_service.dart';
 
 class PileService {
   // 充电桩 API 基础地址
@@ -47,6 +47,7 @@ class PileService {
     int maxRetries = 3,
     Duration retryDelay = const Duration(seconds: 1),
   }) async {
+    final log = LogService();
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       final stopwatch = Stopwatch()..start();
       try {
@@ -62,24 +63,20 @@ class PileService {
         final elapsedMs = stopwatch.elapsedMilliseconds;
 
         if (response.statusCode == 200) {
-          debugPrint('[$name] 成功, 耗时 $elapsedMs 毫秒');
+          log.debug('[$name] 成功, 耗时 ${elapsedMs}ms');
           return jsonDecode(response.body);
         } else if (response.statusCode == 503) {
-          // 503 = 服务器限流/过载：等待后自动重试
-          debugPrint(
-              '[$name] 503 限流, 耗时 $elapsedMs 毫秒, 第 $attempt 次尝试, ${retryDelay.inSeconds} 秒后重试');
+          log.warning('[$name] 503 限流, 第 $attempt 次尝试, ${retryDelay.inSeconds}s 后重试');
           if (attempt < maxRetries) {
             await Future.delayed(retryDelay);
             continue;
           }
         }
-        debugPrint(
-            '[$name] 请求失败(${response.statusCode}), 耗时 $elapsedMs 毫秒');
+        log.error('[$name] 请求失败(${response.statusCode}), 耗时 ${elapsedMs}ms');
         return null;
       } catch (e) {
         stopwatch.stop();
-        final elapsedMs = stopwatch.elapsedMilliseconds;
-        debugPrint('[$name] 请求失败, 耗时 $elapsedMs 毫秒: $e');
+        log.error('[$name] 请求异常: $e');
         return null;
       }
     }
@@ -90,19 +87,18 @@ class PileService {
   // 4. 获取桩号列表：优先从充电记录拉取，失败回退到默认配置
   // =================================================================
   Future<Map<String, String>> getPileList() async {
-    // 如果用户关闭了优先拉取充电记录，直接使用默认桩号
+    final log = LogService();
     if (!useChargeRecord) {
-      debugPrint('已关闭充电记录拉取，直接使用默认充电桩配置');
-      debugPrint('默认配置共 ${defaultPileNo.length} 个充电桩');
+      log.info('已关闭充电记录拉取，直接使用默认充电桩配置');
+      log.info('默认配置共 ${defaultPileNo.length} 个充电桩');
       return Map<String, String>.from(defaultPileNo);
     }
 
-    // 步骤 1：尝试拉取最近 100 条充电记录
+    log.info('正在拉取充电记录...');
     final data = await fetchApi('充电记录',
         '$basicUrl/btzncdz/charge-record/index',
         {'page': '0', 'size': '100', 'card': '', 'lang': 'zh'});
 
-    // 步骤 2：如果拉取成功，提取桩号和位置信息（自动去重）
     if (data != null) {
       final pileInfo = <String, String>{};
       if (data is List) {
@@ -129,12 +125,12 @@ class PileService {
           }
         }
       }
+      log.info('从充电记录提取到 ${pileInfo.length} 个充电桩');
       return pileInfo;
     }
 
-    // 步骤 3：拉取失败 → 使用默认桩号配置
-    debugPrint('无法拉取充电记录，已使用默认充电桩配置进行查询');
-    debugPrint('默认配置共 ${defaultPileNo.length} 个充电桩');
+    log.warning('无法拉取充电记录，已使用默认充电桩配置进行查询');
+    log.info('默认配置共 ${defaultPileNo.length} 个充电桩');
     return Map<String, String>.from(defaultPileNo);
   }
 
@@ -158,6 +154,7 @@ class PileService {
   // 6. 批处理查询所有桩号：每批 2 个并发，等该批完成后再开始下一批
   // =================================================================
   Future<CheckResult> checkOfflinePiles(Map<String, String> pileInfo) async {
+    final log = LogService();
     final stopwatch = Stopwatch()..start();
     final allPiles = <PileStatus>[];
 
@@ -170,6 +167,7 @@ class PileService {
     const batchSize = 2;
     final total = pileList.length;
 
+    log.info('开始批处理查询 $total 个充电桩状态...');
     for (int batchStart = 0; batchStart < total; batchStart += batchSize) {
       final batchEnd = (batchStart + batchSize > total) ? total : batchStart + batchSize;
       final batch = pileList.sublist(batchStart, batchEnd);
@@ -183,6 +181,8 @@ class PileService {
           final pileNo = statusData['_pileNo'] as String;
           final location = statusData['_location'] as String;
           final tag = pileTagMap[pileNo] ?? '';
+          final statusLabel = statusCode == 1 ? '在线' : (statusCode == 2 ? '离线' : '未知');
+          log.debug('$pileNo → $statusLabel');
           allPiles.add(PileStatus(
             pileNo: pileNo,
             location: location,
