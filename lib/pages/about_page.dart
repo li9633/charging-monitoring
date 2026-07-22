@@ -14,7 +14,7 @@ class AboutPage extends StatefulWidget {
 }
 
 class _AboutPageState extends State<AboutPage> {
-  static const String githubUrl = 'https://github.com/xindev';
+  static const String githubUrl = 'https://github.com/li9633/charging-monitoring';
   String _version = '';
 
   @override
