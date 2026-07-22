@@ -25,7 +25,7 @@ class MonitorPageState extends State<MonitorPage>
   String? _errorMessage;
   late TabController _tabController;
 
-  static const _tabs = ['全部', '离线', '在线'];
+  static const _tabs = ['全部', '离线', '在线', '错误'];
 
   @override
   void initState() {
@@ -69,7 +69,8 @@ class MonitorPageState extends State<MonitorPage>
       final checkResult = await _service.checkOfflinePiles(pileInfo);
       final offline = checkResult.allPiles.where((p) => p.isOffline).length;
       final online = checkResult.allPiles.where((p) => p.isOnline).length;
-      _log.info('检测完成: 在线 $online, 离线 $offline, 耗时 ${checkResult.elapsedMs}ms');
+      final errorCount = checkResult.allPiles.where((p) => p.isError).length;
+      _log.info('检测完成: 在线 $online, 离线 $offline, 错误 $errorCount, 耗时 ${checkResult.elapsedMs}ms');
       setState(() {
         _result = checkResult;
         _isLoading = false;
@@ -93,6 +94,8 @@ class MonitorPageState extends State<MonitorPage>
         return all.where((p) => p.isOffline).toList();
       case 2:
         return all.where((p) => p.isOnline).toList();
+      case 3:
+        return all.where((p) => p.isError).toList();
       default:
         return all;
     }
@@ -226,6 +229,47 @@ class MonitorPageState extends State<MonitorPage>
       );
     }
 
+    if (_result!.allPiles.every((p) => p.isError)) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.cloud_off, size: 60, color: Colors.orange[300]),
+                    const SizedBox(height: 16),
+                    const Text('全部充电桩拉取失败',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Text('详情请查看日志',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 14,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.6))),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _startCheck,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('重试'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     final filtered = _filteredPiles();
     final checkResult = _result!;
 
@@ -272,7 +316,7 @@ class MonitorPageState extends State<MonitorPage>
                   Icon(Icons.check_circle, size: 60, color: Colors.green[400]),
                   const SizedBox(height: 16),
                   Text(
-                    _tabController.index == 1 ? '所有充电桩均在线' : '无匹配结果',
+                    _tabController.index == 1 ? '所有充电桩均在线' : '没有对应状态的充电桩',
                     style: const TextStyle(fontSize: 18),
                   ),
                 ],
@@ -287,6 +331,7 @@ class MonitorPageState extends State<MonitorPage>
 
   Widget _buildPileCard(PileStatus pile) {
     final isOffline = pile.isOffline;
+    final isError = pile.isError;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
@@ -299,7 +344,11 @@ class MonitorPageState extends State<MonitorPage>
               children: [
                 Icon(Icons.ev_station,
                     size: 20,
-                    color: isOffline ? Colors.red[700] : Colors.green[700]),
+                    color: isError
+                        ? Colors.orange[700]
+                        : isOffline
+                            ? Colors.red[700]
+                            : Colors.green[700]),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text('充电桩 ${pile.pileNo}',
@@ -328,7 +377,11 @@ class MonitorPageState extends State<MonitorPage>
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isOffline ? Colors.red : Colors.green,
+                    color: isError
+                        ? Colors.orange
+                        : isOffline
+                            ? Colors.red
+                            : Colors.green,
                   ),
                 ),
               ],
@@ -341,10 +394,14 @@ class MonitorPageState extends State<MonitorPage>
                 overflow: TextOverflow.ellipsis),
             const SizedBox(height: 4),
             // 第三行：状态文字
-            Text(isOffline ? '离线' : '在线',
+            Text(isError ? '请求失败' : (isOffline ? '离线' : '在线'),
                 style: TextStyle(
                     fontSize: 12,
-                    color: isOffline ? Colors.red[600] : Colors.green[600],
+                    color: isError
+                        ? Colors.orange[600]
+                        : isOffline
+                            ? Colors.red[600]
+                            : Colors.green[600],
                     fontWeight: FontWeight.w500)),
           ],
         ),

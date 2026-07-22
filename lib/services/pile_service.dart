@@ -175,7 +175,8 @@ class PileService {
       final futures = batch.map((entry) => checkSinglePile(entry.key, entry.value));
       final results = await Future.wait(futures);
 
-      for (final statusData in results) {
+      for (int i = 0; i < results.length; i++) {
+        final statusData = results[i];
         if (statusData != null) {
           final statusCode = statusData['status'] as int? ?? 0;
           final pileNo = statusData['_pileNo'] as String;
@@ -188,6 +189,17 @@ class PileService {
             location: location,
             tag: tag,
             status: statusCode,
+          ));
+        } else {
+          final pileNo = batch[i].key;
+          final location = batch[i].value;
+          final tag = pileTagMap[pileNo] ?? '';
+          log.warning('$pileNo → 请求失败');
+          allPiles.add(PileStatus(
+            pileNo: pileNo,
+            location: location,
+            tag: tag,
+            status: -1,
           ));
         }
       }
@@ -208,10 +220,11 @@ class PileStatus {
   final String pileNo;
   final String location;
   final String tag;
-  final int status; // 0=未知, 1=在线, 2=离线
+  final int status; // -1=请求失败, 0=未知, 1=在线, 2=离线
 
   bool get isOnline => status == 1;
   bool get isOffline => status == 2;
+  bool get isError => status == -1;
 
   PileStatus({
     required this.pileNo,
@@ -229,6 +242,8 @@ class CheckResult {
       allPiles.where((p) => p.isOffline).toList();
   List<PileStatus> get onlinePiles =>
       allPiles.where((p) => p.isOnline).toList();
+  List<PileStatus> get errorPiles =>
+      allPiles.where((p) => p.isError).toList();
 
   CheckResult({
     required this.allPiles,

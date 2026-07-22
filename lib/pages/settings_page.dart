@@ -172,6 +172,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       ButtonSegment(value: 0, label: Text('全部')),
                       ButtonSegment(value: 1, label: Text('离线')),
                       ButtonSegment(value: 2, label: Text('在线')),
+                      ButtonSegment(value: 3, label: Text('错误')),
                     ],
                     selected: {_defaultFilter},
                     onSelectionChanged: (v) => setState(() => _defaultFilter = v.first),

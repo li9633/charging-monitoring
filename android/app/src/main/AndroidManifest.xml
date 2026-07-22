@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <application
         android:label="充电桩监测"
         android:enableOnBackInvokedCallback="true"
@@ -6,6 +8,7 @@
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
+            android:label="充电桩监测"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
