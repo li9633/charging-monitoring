@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
       title: '充电桩离线检测',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
       home: HomePage(settings: settings),
