@@ -43,7 +43,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.dispose();
   }
 
-  Future<void> _save() async {
+  Future<void> _autoSave() async {
     await widget.settings.setWxToken(_wxTokenController.text.trim());
     await widget.settings.setUseChargeRecord(_useChargeRecord);
     await widget.settings.setDefaultFilter(_defaultFilter);
@@ -60,12 +60,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     await widget.settings.setPileTagMap(tagMap);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('设置已保存，下次检测生效')),
-      );
-      widget.onSettingsChanged?.call();
-    }
+    widget.onSettingsChanged?.call();
   }
 
   @override
@@ -74,13 +69,6 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(
         title: const Text('设置'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          TextButton.icon(
-            onPressed: _save,
-            icon: const Icon(Icons.save),
-            label: const Text('保存'),
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -112,6 +100,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: _wxTokenController,
+                    onChanged: (_) => _autoSave(),
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       hintText: '输入认证 Token',
@@ -146,7 +135,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   Switch(
                     value: _useChargeRecord,
-                    onChanged: (v) => setState(() => _useChargeRecord = v),
+                    onChanged: (v) {
+                      setState(() => _useChargeRecord = v);
+                      _autoSave();
+                    },
                   ),
                 ],
               ),
@@ -175,7 +167,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       ButtonSegment(value: 3, label: Text('错误')),
                     ],
                     selected: {_defaultFilter},
-                    onSelectionChanged: (v) => setState(() => _defaultFilter = v.first),
+                    onSelectionChanged: (v) {
+                      setState(() => _defaultFilter = v.first);
+                      _autoSave();
+                    },
                   ),
                 ],
               ),
@@ -190,11 +185,20 @@ class _SettingsPageState extends State<SettingsPage> {
             entries: _pileNoEntries,
             keyHint: '桩号',
             valueHint: '位置',
-            onAdd: (key, value) => setState(() => _pileNoEntries.add(_MapEntry(key: key, value: value))),
-            onEdit: (i, key, value) => setState(() {
-              _pileNoEntries[i] = _MapEntry(key: key, value: value);
-            }),
-            onRemove: (i) => setState(() => _pileNoEntries.removeAt(i)),
+            onAdd: (key, value) {
+              setState(() => _pileNoEntries.add(_MapEntry(key: key, value: value)));
+              _autoSave();
+            },
+            onEdit: (i, key, value) {
+              setState(() {
+                _pileNoEntries[i] = _MapEntry(key: key, value: value);
+              });
+              _autoSave();
+            },
+            onRemove: (i) {
+              setState(() => _pileNoEntries.removeAt(i));
+              _autoSave();
+            },
           ),
           const SizedBox(height: 12),
 
@@ -205,11 +209,20 @@ class _SettingsPageState extends State<SettingsPage> {
             entries: _tagEntries,
             keyHint: '桩号',
             valueHint: '标签',
-            onAdd: (key, value) => setState(() => _tagEntries.add(_MapEntry(key: key, value: value))),
-            onEdit: (i, key, value) => setState(() {
-              _tagEntries[i] = _MapEntry(key: key, value: value);
-            }),
-            onRemove: (i) => setState(() => _tagEntries.removeAt(i)),
+            onAdd: (key, value) {
+              setState(() => _tagEntries.add(_MapEntry(key: key, value: value)));
+              _autoSave();
+            },
+            onEdit: (i, key, value) {
+              setState(() {
+                _tagEntries[i] = _MapEntry(key: key, value: value);
+              });
+              _autoSave();
+            },
+            onRemove: (i) {
+              setState(() => _tagEntries.removeAt(i));
+              _autoSave();
+            },
           ),
           const SizedBox(height: 80),
         ],
