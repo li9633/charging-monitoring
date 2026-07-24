@@ -49,6 +49,18 @@ def log_results_to_db(all_results):
     print(f"已写入 {len(all_results)} 条状态记录到数据库")
 
 
+def cleanup_old_data(days=30):
+    """删除超过指定天数的旧数据"""
+    cutoff = (datetime.now(tz=timezone(timedelta(hours=8))) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.execute("DELETE FROM pile_status_log WHERE check_time < ?", (cutoff,))
+    deleted = cursor.rowcount
+    conn.commit()
+    conn.close()
+    if deleted > 0:
+        print(f"已清理 {deleted} 条超过 {days} 天的旧数据")
+
+
 def query_report_data():
     """从数据库查询分析报告所需的全部数据
 

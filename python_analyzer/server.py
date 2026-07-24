@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from analyzer import get_report_data
 from api import check_offline_piles
 from config import CHECK_INTERVAL, HTTP_PORT
-from db import init_db
+from db import cleanup_old_data, init_db
 
 shutdown_event = threading.Event()
 
@@ -51,6 +51,7 @@ def check_loop():
             now_str = datetime.now(tz=timezone(timedelta(hours=8))).strftime("%H:%M:%S")
             print(f"\n[{now_str}] 开始新一轮检测...")
             check_offline_piles()
+            cleanup_old_data()
             print(
                 f"[{datetime.now(tz=timezone(timedelta(hours=8))).strftime('%H:%M:%S')}] 本轮完成，{CHECK_INTERVAL}秒后进行下一轮"
             )
