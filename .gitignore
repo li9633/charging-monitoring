@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+
+# 抓包文件
+charge-network.saz
+
+# 数据库文件
+python_analyzer/*db

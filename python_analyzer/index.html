@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>充电桩监控报告</title>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/element-plus/dist/index.css" />
+<script src="//cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+<script src="//cdn.jsdelivr.net/npm/element-plus"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#333;padding:16px}
+
+.header{background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:24px 28px;border-radius:12px;margin-bottom:20px}
+.header h1{font-size:22px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.header .meta{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;opacity:.9}
+.header .meta span{background:rgba(255,255,255,.1);padding:4px 12px;border-radius:20px}
+
+.stat-card{text-align:center;padding:20px 12px;border-radius:10px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.stat-val{font-size:28px;font-weight:700}
+.stat-label{font-size:12px;color:#909399;margin-top:4px}
+
+.pile-card{margin-bottom:14px}
+.pile-card .el-card__body{padding:16px 20px}
+
+.pile-header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pile-header .pile-no{font-size:17px;font-weight:700;color:#1a1a2e}
+.pile-header .location{font-size:12px;color:#909399;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.stats-row{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0}
+.stats-row .stat-item{font-size:13px;background:#f5f7fa;padding:4px 10px;border-radius:6px}
+
+.heatmap{display:flex;gap:2px;margin:10px 0;align-items:center}
+.heatmap-label{font-size:10px;color:#c0c4cc;width:40px;flex-shrink:0}
+.heatmap .blk{flex:1;min-width:14px;height:24px;border-radius:4px;cursor:pointer;transition:transform .15s}
+.heatmap .blk:hover{transform:scale(1.25);z-index:1}
+.blk.danger{background:var(--el-color-danger)}
+.blk.warning{background:var(--el-color-warning)}
+.blk.success{background:var(--el-color-success)}
+.blk.info{background:#e8e8e8}
+
+.footer{text-align:center;padding:24px;color:#c0c4cc;font-size:12px}
+
+.el-empty{margin-top:60px}
+</style>
+</head>
+<body>
+<div id="app">
+  <template v-if="loading">
+    <el-skeleton :rows="6" animated style="padding:40px" />
+  </template>
+  <template v-else-if="!data">
+    <el-empty description="暂无数据，系统正在收集数据，请稍后刷新" />
+  </template>
+  <div v-else>
+    <div class="header">
+      <h1>⚡ 充电桩离线时段分析报告</h1>
+      <div class="meta">
+        <span>📅 {{ data.min_time }} ~ {{ data.max_time }}</span>
+        <span>🔍 总检查 {{ data.total }} 次</span>
+        <span>🕐 上次检测 {{ data.last_check }}</span>
+        <span>🔄 {{ countdown }}秒后刷新</span>
+      </div>
+    </div>
+
+    <el-row :gutter="14" style="margin-bottom:18px">
+      <el-col :xs="12" :sm="6">
+        <div class="stat-card">
+          <div class="stat-val">{{ data.piles.length }}</div>
+          <div class="stat-label">监控桩数</div>
+        </div>
+      </el-col>
+      <el-col :xs="12" :sm="6">
+        <div class="stat-card">
+          <div class="stat-val" style="color:var(--el-color-danger)">{{ offlineCount }}</div>
+          <div class="stat-label">严重离线 ≥50%</div>
+        </div>
+      </el-col>
+      <el-col :xs="12" :sm="6">
+        <div class="stat-card">
+          <div class="stat-val" style="color:var(--el-color-warning)">{{ warningCount }}</div>
+          <div class="stat-label">需关注 20%~50%</div>
+        </div>
+      </el-col>
+      <el-col :xs="12" :sm="6">
+        <div class="stat-card">
+          <div class="stat-val" style="color:var(--el-color-success)">{{ normalCount }}</div>
+          <div class="stat-label">正常运行 &lt;20%</div>
+        </div>
+      </el-col>
+    </el-row>
+
+    <el-card v-for="pile in sortedPiles" :key="pile.pile_no" class="pile-card"
+             :style="{borderLeft: '4px solid ' + pile.status_color}">
+      <div class="pile-header">
+        <span class="pile-no">{{ pile.pile_no }}</span>
+        <span class="location" :title="pile.location">{{ pile.loc_display }}</span>
+        <el-tag :type="pile.tagType" size="small" effect="dark">{{ pile.status }}</el-tag>
+        <el-progress :percentage="pile.offline_rate" :color="pile.status_color"
+                     :stroke-width="6" style="width:100px;flex-shrink:0" />
+      </div>
+
+      <div class="stats-row">
+        <span class="stat-item">检查 {{ pile.total_checks }}</span>
+        <span class="stat-item">在线 {{ pile.online }}</span>
+        <span class="stat-item">离线 {{ pile.total_offline }}</span>
+        <span class="stat-item">离线率 {{ pile.offline_rate }}%</span>
+      </div>
+
+      <div class="heatmap">
+        <span class="heatmap-label">0h</span>
+        <el-tooltip v-for="h in pile.hours" :key="h.hour"
+                    :content="h.label + ' 检查:' + h.checks + ' 离线:' + h.offline + ' 离线率:' + h.rate + '%'"
+                    placement="top" :show-after="200">
+          <div :class="['blk', heatClass(h.css_class)]"></div>
+        </el-tooltip>
+      </div>
+
+      <el-alert v-if="pile.suspicious_ranges" :title="'⚠ 疑似禁用时段: ' + pile.suspicious_ranges"
+                type="warning" :closable="false" show-icon style="margin-top:10px" />
+
+      <el-collapse style="margin-top:12px" v-model="pile.activeNames">
+        <el-collapse-item title="详细数据" name="detail">
+          <el-table :data="pile.hours" size="small" stripe max-height="360">
+            <el-table-column prop="label" label="时段" width="80" align="center" />
+            <el-table-column prop="checks" label="检查" width="80" align="center" />
+            <el-table-column prop="offline" label="离线" width="80" align="center" />
+            <el-table-column label="离线率" align="center">
+              <template #default="scope">
+                <span :style="{color: rateColor(scope.row.rate)}">{{ scope.row.rate }}%</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="120" align="center">
+              <template #default="scope">
+                <el-tag v-if="scope.row.css_class === 'd'" type="danger" size="small">疑似禁用</el-tag>
+                <el-tag v-else-if="scope.row.css_class === 'w'" type="warning" size="small">关注</el-tag>
+                <el-tag v-else-if="scope.row.css_class === 'g'" type="success" size="small">正常</el-tag>
+                <span v-else style="color:#c0c4cc">无数据</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-collapse-item>
+      </el-collapse>
+    </el-card>
+
+    <div class="footer">
+      <el-tag type="success" size="small">绿色=正常</el-tag>
+      <el-tag type="info" size="small" style="margin:0 4px">灰色=无数据</el-tag>
+      <el-tag type="warning" size="small">黄色=关注</el-tag>
+      <el-tag type="danger" size="small" style="margin-left:4px">红色=疑似禁用</el-tag>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createApp } = Vue
+const app = createApp({
+  data() {
+    return {
+      data: null,
+      loading: true,
+      countdown: 60,
+      timer: null,
+      countdownTimer: null
+    }
+  },
+  computed: {
+    sortedPiles() {
+      if (!this.data) return []
+      return [...this.data.piles]
+        .map(p => ({
+          ...p,
+          activeNames: [],
+          tagType: p.offline_rate >= 50 ? 'danger' : p.offline_rate >= 20 ? 'warning' : 'success'
+        }))
+        .sort((a, b) => b.offline_rate - a.offline_rate)
+    },
+    offlineCount() {
+      return this.sortedPiles.filter(p => p.offline_rate >= 50).length
+    },
+    warningCount() {
+      return this.sortedPiles.filter(p => p.offline_rate >= 20 && p.offline_rate < 50).length
+    },
+    normalCount() {
+      return this.sortedPiles.filter(p => p.offline_rate < 20).length
+    }
+  },
+  mounted() {
+    this.fetchData()
+    this.timer = setInterval(() => this.fetchData(), 60000)
+    this.countdownTimer = setInterval(() => {
+      this.countdown = this.countdown > 1 ? this.countdown - 1 : 60
+    }, 1000)
+  },
+  beforeUnmount() {
+    clearInterval(this.timer)
+    clearInterval(this.countdownTimer)
+  },
+  methods: {
+    async fetchData() {
+      try {
+        const res = await fetch('/api/report')
+        this.data = await res.json()
+        this.countdown = 60
+      } catch (e) {
+        console.error('数据获取失败:', e)
+      } finally {
+        this.loading = false
+      }
+    },
+    heatClass(css) {
+      return css === 'd' ? 'danger' : css === 'w' ? 'warning' : css === 'g' ? 'success' : 'info'
+    },
+    rateColor(rate) {
+      if (rate >= 80) return 'var(--el-color-danger)'
+      if (rate >= 50) return 'var(--el-color-warning)'
+      return ''
+    }
+  }
+})
+app.use(ElementPlus)
+app.mount('#app')
+</script>
+</body>
+</html>
