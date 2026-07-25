@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import api from '@/api/request'
 
 interface HourData {
   hour: number
@@ -84,9 +85,8 @@ const topOfflinePiles = computed(() => {
 async function fetchData() {
   loading.value = true
   try {
-    const res = await fetch('/api/report')
-    if (!res.ok) throw new Error(String(res.status))
-    data.value = await res.json()
+    const res = await api.get('/report')
+    data.value = res.data
     error.value = false
   } catch (e) {
     console.error('数据获取失败:', e)

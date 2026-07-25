@@ -7,12 +7,12 @@ import sqlite3
 import threading
 from datetime import datetime, timedelta, timezone
 
-from flask import Flask, jsonify, redirect, send_file
+from flask import Flask, jsonify, redirect, request, send_file
 from waitress import serve
 
 from analyzer import get_report_data, get_today_data
 from api import check_offline_piles
-from config import CHECK_INTERVAL, HTTP_PORT
+from config import CHECK_INTERVAL, HTTP_PORT, pile_tag_map
 from db import cleanup_old_data, init_db
 
 STATIC_DIR = "frontend/dist"
@@ -32,12 +32,27 @@ def report_page():
 
 @app.route("/api/report")
 def api_report():
-    return jsonify(get_report_data())
+    tag = request.args.get("tag", None)
+    pile_no = request.args.get("pile_no", None)
+    return jsonify(get_report_data(tag_filter=tag, pile_no_filter=pile_no))
 
 
 @app.route("/api/today")
 def api_today():
-    return jsonify(get_today_data())
+    tag = request.args.get("tag", None)
+    pile_no = request.args.get("pile_no", None)
+    return jsonify(get_today_data(tag_filter=tag, pile_no_filter=pile_no))
+
+
+@app.route("/api/tags")
+def api_tags():
+    """返回所有可用标签及对应桩号"""
+    tags = {}
+    for pile, tag in pile_tag_map.items():
+        if tag not in tags:
+            tags[tag] = []
+        tags[tag].append(pile)
+    return jsonify({"tags": tags, "all_tags": list(tags.keys())})
 
 
 def check_loop():

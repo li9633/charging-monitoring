@@ -82,8 +82,13 @@ def analyze_offline_patterns():
     print(f"{'=' * 60}")
 
 
-def get_report_data():
-    """返回结构化数据，供 JSON API 使用"""
+def get_report_data(tag_filter=None, pile_no_filter=None):
+    """返回结构化数据，供 JSON API 使用
+
+    Args:
+        tag_filter: 可选，按标签筛选（如 "地下室"）
+        pile_no_filter: 可选，按桩号筛选（如 "0000224"）
+    """
     data = query_report_data()
     if data is None:
         return None
@@ -96,6 +101,14 @@ def get_report_data():
         hour_data = pile_hour_data[pile_no]
         location = location_map.get(pile_no, "未知")
         tag = pile_tag_map.get(pile_no, "")
+
+        # 按标签筛选
+        if tag_filter is not None and tag != tag_filter:
+            continue
+        # 按桩号筛选
+        if pile_no_filter is not None and pile_no != pile_no_filter:
+            continue
+
         loc_display = f"[{tag}] {location}" if tag else location
 
         total_checks = sum(t for _, t in hour_data.values())
@@ -157,8 +170,13 @@ def get_report_data():
     }
 
 
-def get_today_data():
-    """返回今日各桩每小时状态，供前端今日时间线使用"""
+def get_today_data(tag_filter=None, pile_no_filter=None):
+    """返回今日各桩每小时状态，供前端今日时间线使用
+
+    Args:
+        tag_filter: 可选，按标签筛选（如 "地下室"）
+        pile_no_filter: 可选，按桩号筛选（如 "0000224"）
+    """
     today_data = query_today_data()
     location_map = get_location_map()
 
@@ -167,6 +185,14 @@ def get_today_data():
         hour_data = today_data[pile_no]
         location = location_map.get(pile_no, "未知")
         tag = pile_tag_map.get(pile_no, "")
+
+        # 按标签筛选
+        if tag_filter is not None and tag != tag_filter:
+            continue
+        # 按桩号筛选
+        if pile_no_filter is not None and pile_no != pile_no_filter:
+            continue
+
         loc_display = f"[{tag}] {location}" if tag else location
 
         hours = []

@@ -37,7 +37,9 @@ function heatClass(css: string): string {
   <el-card class="pile-card" :style="{ borderLeft: '4px solid ' + pile.status_color }">
     <div class="pile-header">
       <span class="pile-no">{{ pile.pile_no }}</span>
-      <span class="loc" :title="pile.location">{{ pile.loc_display }}</span>
+      <el-tooltip :content="pile.location" placement="top" :show-after="400">
+        <span class="loc">{{ pile.loc_display }}</span>
+      </el-tooltip>
       <el-tag :type="pile.tagType" size="small" effect="dark">{{ pile.status }}</el-tag>
       <el-progress
         :percentage="pile.offline_rate"
@@ -56,12 +58,16 @@ function heatClass(css: string): string {
 
     <div class="heatmap">
       <span class="heatmap-label">0h</span>
-      <div
+      <el-tooltip
         v-for="h in pile.hours"
         :key="h.hour"
-        :class="['blk', heatClass(h.css_class)]"
-        :title="h.label + ' 检查:' + h.checks + ' 离线:' + h.offline + ' ' + h.rate + '%'"
-      ></div>
+        :content="h.label + ' 检查:' + h.checks + ' 离线:' + h.offline + ' ' + h.rate + '%'"
+        placement="top"
+        class="heatmap-tip"
+        :show-after="400"
+      >
+        <div :class="['blk', heatClass(h.css_class)]"></div>
+      </el-tooltip>
     </div>
 
     <el-alert
@@ -170,6 +176,15 @@ function heatClass(css: string): string {
   gap: 2px;
   margin: 12px 0;
   align-items: center;
+
+  .heatmap-tip {
+    flex: 1;
+    min-width: 14px;
+
+    :deep(.el-tooltip__trigger) {
+      display: flex;
+    }
+  }
 }
 
 .heatmap-label {

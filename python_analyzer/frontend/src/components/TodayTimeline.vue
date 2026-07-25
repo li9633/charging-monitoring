@@ -52,15 +52,21 @@ function blockClass(h: TodayHour): string {
       <div v-for="pile in today.piles" :key="pile.pile_no" class="today-row">
         <div class="pile-label">
           <div>{{ pile.pile_no }}</div>
-          <div class="loc" :title="pile.location">{{ pile.loc_display }}</div>
+          <el-tooltip :content="pile.location" placement="top" :show-after="400">
+            <div class="loc">{{ pile.loc_display }}</div>
+          </el-tooltip>
         </div>
         <div class="today-timeline">
-          <div
+          <el-tooltip
             v-for="h in pile.hours"
             :key="h.hour"
-            :class="['tblk', blockClass(h)]"
-            :title="h.label + ' 检查:' + h.checks + '次 离线:' + h.offline + '次'"
-          ></div>
+            :content="h.label + ' 检查:' + h.checks + '次 离线:' + h.offline + '次'"
+            placement="top"
+            class="tline-tip"
+            :show-after="400"
+          >
+            <div :class="['tblk', blockClass(h)]"></div>
+          </el-tooltip>
         </div>
       </div>
     </div>
@@ -161,6 +167,15 @@ function blockClass(h: TodayHour): string {
   display: flex;
   gap: 2px;
   flex: 1;
+
+  .tline-tip {
+    flex: 1;
+    min-width: 12px;
+
+    :deep(.el-tooltip__trigger) {
+      display: flex;
+    }
+  }
 }
 
 .tblk {

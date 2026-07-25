@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import StatCards from '../components/StatCards.vue'
-import TodayTimeline from '../components/TodayTimeline.vue'
-import PileCard from '../components/PileCard.vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import api from '@/api/request'
+import StatCards from '@/components/StatCards.vue'
+import TodayTimeline from '@/components/TodayTimeline.vue'
+import PileCard from '@/components/PileCard.vue'
 
 interface HourData {
   hour: number
@@ -61,6 +62,8 @@ interface TodayData {
 
 const data = ref<ReportData | null>(null)
 const today = ref<TodayData | null>(null)
+const tags = ref<string[]>([])
+const selectedTag = ref('')
 const loading = ref(true)
 const error = ref(false)
 const countdown = ref(60)
@@ -85,12 +88,25 @@ const counts = computed(() => {
   }
 })
 
+async function fetchTags() {
+  try {
+    const res = await api.get('/tags')
+    tags.value = res.data.all_tags || []
+  } catch (e) {
+    console.error('标签获取失败:', e)
+  }
+}
+
 async function fetchData() {
   try {
-    const [reportRes, todayRes] = await Promise.all([fetch('/api/report'), fetch('/api/today')])
-    if (!reportRes.ok) throw new Error(String(reportRes.status))
-    data.value = await reportRes.json()
-    if (todayRes.ok) today.value = await todayRes.json()
+    const params: Record<string, string> = {}
+    if (selectedTag.value) params.tag = selectedTag.value
+    const [reportRes, todayRes] = await Promise.all([
+      api.get('/report', { params }),
+      api.get('/today'),
+    ])
+    data.value = reportRes.data
+    today.value = todayRes.data
     error.value = false
     countdown.value = 60
   } catch (e) {
@@ -101,10 +117,16 @@ async function fetchData() {
   }
 }
 
+watch(selectedTag, () => {
+  loading.value = true
+  fetchData()
+})
+
 let timer: ReturnType<typeof setInterval> | undefined
 let cd: ReturnType<typeof setInterval> | undefined
 
 onMounted(() => {
+  fetchTags()
   fetchData()
   timer = setInterval(fetchData, 60000)
   cd = setInterval(() => {
@@ -147,10 +169,23 @@ onBeforeUnmount(() => {
           <span><font-awesome-icon icon="magnifying-glass" /> 总检查 {{ data.total }} 次</span>
           <span><font-awesome-icon icon="clock" /> 上次检测 {{ data.last_check }}</span>
           <span><font-awesome-icon icon="arrows-rotate" /> {{ countdown }}秒后刷新</span>
-          <el-button size="small" circle @click="fetchData" title="立即刷新">
-            <font-awesome-icon icon="rotate" />
-          </el-button>
+          <el-tooltip content="立即刷新" placement="top">
+            <el-button size="small" circle @click="fetchData">
+              <font-awesome-icon icon="rotate" />
+            </el-button>
+          </el-tooltip>
         </div>
+      </div>
+
+      <div v-if="tags.length" class="filter-bar">
+        <span class="filter-label">
+          <font-awesome-icon icon="tags" />
+          标签筛选
+        </span>
+        <el-radio-group v-model="selectedTag" size="small">
+          <el-radio-button value="">全部</el-radio-button>
+          <el-radio-button v-for="t in tags" :key="t" :value="t">{{ t }}</el-radio-button>
+        </el-radio-group>
       </div>
 
       <StatCards
@@ -169,6 +204,29 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 @use '../styles/variables' as *;
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: $color-surface;
+  padding: 14px 24px;
+  border-radius: $radius-lg;
+  margin-bottom: 20px;
+  box-shadow: $shadow-sm;
+  border: 1px solid $color-border;
+  flex-wrap: wrap;
+
+  .filter-label {
+    font-size: 13px;
+    font-weight: $font-weight-semibold;
+    color: $color-text-secondary;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+}
 
 .header {
   background: $color-surface;
