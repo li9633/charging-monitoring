@@ -4,12 +4,13 @@
 # =================================================================
 
 import logging
+import os
 import sqlite3
 import threading
 from datetime import datetime, timedelta, timezone
 
+from cheroot.wsgi import Server
 from flask import Flask, jsonify, redirect, request, send_file
-from waitress import serve
 
 from analyzer import get_history_data, get_report_data
 from api import check_offline_piles
@@ -22,20 +23,10 @@ from config import (
 )
 from db import cleanup_old_data, init_db
 
-STATIC_DIR = "frontend/dist"
+STATIC_DIR = "../frontend/dist"
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
 shutdown_event = threading.Event()
 logger = logging.getLogger(__name__)
-
-
-@app.route("/")
-def index():
-    return redirect("/index.html")
-
-
-@app.route("/index.html")
-def report_page():
-    return send_file(f"{STATIC_DIR}/index.html")
 
 
 @app.route("/api/report")
@@ -77,6 +68,20 @@ def api_tags():
     return jsonify({"tags": tags, "all_tags": list(tags.keys())})
 
 
+# ===== SPA 兜底：404 时返回 index.html（等价于 nginx try_files） =====
+@app.route("/index.html")
+def redirect_index_to_root():
+    return redirect("/")
+
+
+@app.errorhandler(404)
+def serve_spa(_e):
+    index_path = os.path.join(STATIC_DIR, "index.html")
+    if not os.path.isfile(index_path):
+        return "前端未构建，请先执行: cd frontend && npm run build", 503
+    return send_file(index_path)
+
+
 def check_loop():
     """后台定时检测：定期查询充电桩状态并写入数据库"""
     while not shutdown_event.is_set():
@@ -109,8 +114,12 @@ def start_server():
     logger.info("按 Ctrl+C 停止服务")
 
     try:
-        serve(app, host="0.0.0.0", port=HTTP_PORT)
+        server = Server(("0.0.0.0", HTTP_PORT), app, numthreads=16)
+        server.start()
     except KeyboardInterrupt:
+        pass
+    finally:
         logger.info("正在关闭服务...")
         shutdown_event.set()
+        server.stop()
         logger.info("服务已停止")
