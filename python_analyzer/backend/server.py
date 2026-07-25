@@ -114,7 +114,7 @@ def start_server():
     logger.info("按 Ctrl+C 停止服务")
 
     try:
-        server = Server(("0.0.0.0", HTTP_PORT), app, numthreads=16)
+        server = Server(("0.0.0.0", HTTP_PORT), app)
         server.start()
     except KeyboardInterrupt:
         pass
