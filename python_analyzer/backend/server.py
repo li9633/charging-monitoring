@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Flask, jsonify, redirect, request, send_file
 from waitress import serve
 
-from analyzer import get_report_data, get_today_data
+from analyzer import get_history_data, get_report_data
 from api import check_offline_piles
 from config import CHECK_INTERVAL, HTTP_PORT, pile_tag_map
 from db import cleanup_old_data, init_db
@@ -34,14 +34,18 @@ def report_page():
 def api_report():
     tag = request.args.get("tag", None)
     pile_no = request.args.get("pile_no", None)
-    return jsonify(get_report_data(tag_filter=tag, pile_no_filter=pile_no))
+    today = datetime.now(tz=timezone(timedelta(hours=8))).strftime("%Y-%m-%d")
+    start_date = request.args.get("start_date", today)
+    end_date = request.args.get("end_date", today)
+    return jsonify(get_report_data(tag_filter=tag, pile_no_filter=pile_no, start_date=start_date, end_date=end_date))
 
 
-@app.route("/api/today")
-def api_today():
+@app.route("/api/history")
+def api_history():
+    """历史分析接口：基于全部数据进行分析"""
     tag = request.args.get("tag", None)
     pile_no = request.args.get("pile_no", None)
-    return jsonify(get_today_data(tag_filter=tag, pile_no_filter=pile_no))
+    return jsonify(get_history_data(tag_filter=tag, pile_no_filter=pile_no))
 
 
 @app.route("/api/tags")
@@ -59,7 +63,8 @@ def check_loop():
     """后台定时检测：定期查询充电桩状态并写入数据库"""
     while not shutdown_event.is_set():
         try:
-            now_str = datetime.now(tz=timezone(timedelta(hours=8))).strftime("%H:%M:%S")
+            now_str = datetime.now(tz=timezone(
+                timedelta(hours=8))).strftime("%H:%M:%S")
             print(f"\n[{now_str}] 开始新一轮检测...")
             check_offline_piles()
             cleanup_old_data()

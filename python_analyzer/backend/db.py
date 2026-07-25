@@ -64,8 +64,13 @@ def cleanup_old_data(days=30):
     conn.close()
 
 
-def query_report_data():
+def query_report_data(start_date=None, end_date=None):
     """从数据库查询分析报告所需的全部数据
+
+    Args:
+        start_date: 可选，起始日期（格式 "YYYY-MM-DD"），None 表示不限制
+        end_date: 可选，结束日期（格式 "YYYY-MM-DD"），None 表示不限制
+        两者都为 None 时查询全部数据
 
     Returns:
         dict or None: 包含 min_time, max_time, total, pile_hour_data,
@@ -74,24 +79,42 @@ def query_report_data():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    cursor.execute("SELECT MIN(check_time), MAX(check_time), COUNT(*) FROM pile_status_log")
+    conditions = []
+    params = []
+    if start_date is not None:
+        conditions.append("check_time >= ?")
+        params.append(start_date + " 00:00:00")
+    if end_date is not None:
+        conditions.append("check_time < ?")
+        params.append(end_date + " 23:59:59")
+
+    where_clause = " AND ".join(conditions) if conditions else "1=1"
+    print(f"[SQL] 条件: {where_clause} | 参数: {params}")
+
+    cursor.execute(
+        f"SELECT MIN(check_time), MAX(check_time), COUNT(*) FROM pile_status_log WHERE {where_clause}",
+        params
+    )
     row = cursor.fetchone()
     if not row or row[2] == 0:
         conn.close()
         return None
 
     min_time, max_time, total = row
+    print(f"[SQL] 数据范围: {min_time} ~ {max_time}, 总记录: {total}")
 
-    cursor.execute("""
+    cursor.execute(f"""
         SELECT pile_no,
                CAST(strftime('%H', check_time) AS INTEGER) as hour,
                SUM(CASE WHEN status = 2 THEN 1 ELSE 0 END) as offline_count,
                COUNT(*) as total_count
         FROM pile_status_log
+        WHERE {where_clause}
         GROUP BY pile_no, hour
         ORDER BY pile_no, hour
-    """)
+    """, params)
     rows = cursor.fetchall()
+    print(f"[SQL] 按桩号小时聚合结果: {len(rows)} 行")
 
     pile_hour_data = {}
     for pile_no, hour, o, c in rows:
@@ -99,10 +122,12 @@ def query_report_data():
             pile_hour_data[pile_no] = {}
         pile_hour_data[pile_no][hour] = (o, c)
 
-    cursor.execute("SELECT DISTINCT pile_no, location FROM pile_status_log")
+    print(f"[SQL] 涉及桩号: {list(pile_hour_data.keys())}")
+
+    cursor.execute(f"SELECT DISTINCT pile_no, location FROM pile_status_log WHERE {where_clause}", params)
     location_map = {r[0]: r[1] for r in cursor.fetchall()}
 
-    cursor.execute("SELECT MAX(check_time) FROM pile_status_log")
+    cursor.execute(f"SELECT MAX(check_time) FROM pile_status_log WHERE {where_clause}", params)
     last_check = cursor.fetchone()[0]
     conn.close()
 
@@ -114,39 +139,3 @@ def query_report_data():
         "location_map": location_map,
         "last_check": last_check
     }
-
-
-def query_today_data():
-    """查询今日各桩每小时的在线/离线状态"""
-    today_start = datetime.now(tz=timezone(timedelta(hours=8))).strftime("%Y-%m-%d 00:00:00")
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT pile_no,
-               CAST(strftime('%H', check_time) AS INTEGER) as hour,
-               SUM(CASE WHEN status = 2 THEN 1 ELSE 0 END) as offline_count,
-               COUNT(*) as total_count
-        FROM pile_status_log
-        WHERE check_time >= ?
-        GROUP BY pile_no, hour
-        ORDER BY pile_no, hour
-    """, (today_start,))
-    rows = cursor.fetchall()
-    conn.close()
-
-    result = {}
-    for pile_no, hour, offline, total in rows:
-        if pile_no not in result:
-            result[pile_no] = {}
-        result[pile_no][hour] = {"offline": offline, "total": total}
-    return result
-
-
-def get_location_map():
-    """轻量查询：仅获取桩号与位置的映射"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT pile_no, location FROM pile_status_log")
-    result = {r[0]: r[1] for r in cursor.fetchall()}
-    conn.close()
-    return result

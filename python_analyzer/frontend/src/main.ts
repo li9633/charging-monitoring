@@ -12,6 +12,7 @@ import {
   faRotate,
   faTags,
   faTrophy,
+  faCalendarDay,
 } from '@fortawesome/free-solid-svg-icons'
 
 import App from './App.vue'
@@ -28,6 +29,7 @@ library.add(
   faRotate,
   faTags,
   faTrophy,
+  faCalendarDay,
 )
 
 const app = createApp(App)

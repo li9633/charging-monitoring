@@ -85,7 +85,7 @@ const topOfflinePiles = computed(() => {
 async function fetchData() {
   loading.value = true
   try {
-    const res = await api.get('/report')
+    const res = await api.get('/history')
     data.value = res.data
     error.value = false
   } catch (e) {
@@ -128,6 +128,9 @@ function barColor(rate: number): string {
           <font-awesome-icon icon="chart-line" />
           历史分析
         </h1>
+        <p class="page-desc">
+          查看历史累计数据，包含24小时离线率趋势图、各充电桩离线率排行TOP10及整体统计概览
+        </p>
         <div class="header-meta">
           <span>数据范围：{{ data.min_time }} ~ {{ data.max_time }}</span>
           <el-button size="small" @click="fetchData">
@@ -250,8 +253,15 @@ function barColor(rate: number): string {
     font-size: 24px;
     font-weight: $font-weight-bold;
     color: $color-text-primary;
-    margin: 0 0 14px;
+    margin: 0 0 6px;
     letter-spacing: -0.3px;
+  }
+
+  .page-desc {
+    font-size: 14px;
+    color: $color-text-secondary;
+    margin: 0 0 16px;
+    line-height: 1.5;
   }
 }
 

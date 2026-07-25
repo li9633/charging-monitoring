@@ -1,13 +1,10 @@
-# d:\MyCodeProject\charging-monitoring\python\analyzer.py
 # =================================================================
 # 充电桩监控系统 - 分析层
-# 负责：控制台离线时段分析 + HTML 报告生成
+# 负责：控制台离线时段分析
 # =================================================================
 
-from datetime import datetime, timedelta, timezone
-
 from config import pile_tag_map
-from db import get_location_map, query_report_data, query_today_data
+from db import query_report_data
 
 
 def _merge_suspicious_ranges(hours):
@@ -82,14 +79,16 @@ def analyze_offline_patterns():
     print(f"{'=' * 60}")
 
 
-def get_report_data(tag_filter=None, pile_no_filter=None):
-    """返回结构化数据，供 JSON API 使用
+def get_report_data(tag_filter=None, pile_no_filter=None, start_date=None, end_date=None):
+    """返回结构化报告数据，供 JSON API 使用
 
     Args:
         tag_filter: 可选，按标签筛选（如 "地下室"）
         pile_no_filter: 可选，按桩号筛选（如 "0000224"）
+        start_date: 可选，起始日期（格式 "YYYY-MM-DD"），默认今日
+        end_date: 可选，结束日期（格式 "YYYY-MM-DD"），默认今日
     """
-    data = query_report_data()
+    data = query_report_data(start_date=start_date, end_date=end_date)
     if data is None:
         return None
 
@@ -170,65 +169,6 @@ def get_report_data(tag_filter=None, pile_no_filter=None):
     }
 
 
-def get_today_data(tag_filter=None, pile_no_filter=None):
-    """返回今日各桩每小时状态，供前端今日时间线使用
-
-    Args:
-        tag_filter: 可选，按标签筛选（如 "地下室"）
-        pile_no_filter: 可选，按桩号筛选（如 "0000224"）
-    """
-    today_data = query_today_data()
-    location_map = get_location_map()
-
-    piles = []
-    for pile_no in sorted(today_data.keys()):
-        hour_data = today_data[pile_no]
-        location = location_map.get(pile_no, "未知")
-        tag = pile_tag_map.get(pile_no, "")
-
-        # 按标签筛选
-        if tag_filter is not None and tag != tag_filter:
-            continue
-        # 按桩号筛选
-        if pile_no_filter is not None and pile_no != pile_no_filter:
-            continue
-
-        loc_display = f"[{tag}] {location}" if tag else location
-
-        hours = []
-        total_offline = 0
-        total_checks = 0
-        for hour in range(24):
-            hd = hour_data.get(hour, {"offline": 0, "total": 0})
-            o, c = hd["offline"], hd["total"]
-            total_offline += o
-            total_checks += c
-
-            if c == 0:
-                status = "nodata"
-            elif o > 0:
-                status = "offline"
-            else:
-                status = "online"
-
-            hours.append({
-                "hour": hour,
-                "label": f"{hour:02d}:00",
-                "checks": c,
-                "offline": o,
-                "status": status
-            })
-
-        piles.append({
-            "pile_no": pile_no,
-            "location": location,
-            "loc_display": loc_display,
-            "total_checks": total_checks,
-            "total_offline": total_offline,
-            "hours": hours
-        })
-
-    return {
-        "date": datetime.now(tz=timezone(timedelta(hours=8))).strftime("%Y-%m-%d"),
-        "piles": piles
-    }
+def get_history_data(tag_filter=None, pile_no_filter=None):
+    """返回全部历史数据分析报告，供历史分析接口使用"""
+    return get_report_data(tag_filter=tag_filter, pile_no_filter=pile_no_filter, start_date=None, end_date=None)

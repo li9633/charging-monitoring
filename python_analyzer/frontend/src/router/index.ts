@@ -5,17 +5,17 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      component: () => import('../layouts/AppLayout.vue'),
+      component: () => import('@/layouts/AppLayout.vue'),
       children: [
         {
           path: '',
           name: 'Dashboard',
-          component: () => import('../views/Dashboard.vue'),
+          component: () => import('@/views/Dashboard.vue'),
         },
         {
           path: 'history',
           name: 'HistoryAnalysis',
-          component: () => import('../views/HistoryAnalysis.vue'),
+          component: () => import('@/views/HistoryAnalysis.vue'),
         },
       ],
     },
