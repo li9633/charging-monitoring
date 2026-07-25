@@ -27,8 +27,13 @@ async function handleRestart() {
   restarting.value = true
   try {
     await restartServer()
-  } catch {
-    // 服务可能在响应前已关闭，忽略错误
+  } catch (e: any) {
+    if (e?.response?.status === 403) {
+      ElMessage.warning(e.response.data?.message || '仅开发模式可用')
+      restarting.value = false
+      return
+    }
+    // 服务可能在响应前已关闭，忽略错误，继续跳转
   }
   router.push({ name: 'Restarting', query: { from: route.fullPath } })
 }

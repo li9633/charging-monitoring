@@ -8,6 +8,9 @@ const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.config?.skipErrorHandler) {
+      return Promise.reject(error)
+    }
     console.error('请求失败:', error.config?.url, error.message)
     ElMessage.error(error.message || '请求失败')
     return Promise.reject(error)

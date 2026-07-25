@@ -5,7 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "main.py",
+            "name": "Run.py (开发模式)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}\\run.py",
+            "console": "integratedTerminal",
+            "env": {
+                "APP_ENV": "development"
+            }
+        },
+        {
+            "name": "Run.py (生产模式)",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}\\run.py",

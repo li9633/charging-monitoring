@@ -12,10 +12,21 @@ SIGNAL_FILE = ".restart_signal"
 
 while True:
     print("🚀 启动服务...")
-    proc = subprocess.Popen([sys.executable, "main.py"])
+    proc = subprocess.Popen([sys.executable, "main.py"], env=os.environ)
 
-    proc.wait()
-    exit_code = proc.returncode
+    try:
+        proc.wait()
+        exit_code = proc.returncode
+    except KeyboardInterrupt:
+        print("\n X 正在关闭服务...")
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+        print("服务已停止")
+        break
 
     if os.path.exists(SIGNAL_FILE):
         os.remove(SIGNAL_FILE)

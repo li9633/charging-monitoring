@@ -16,7 +16,7 @@ export function getLogs(params: { level?: string; limit?: number }) {
 }
 
 export function healthCheck() {
-  return api.get('/system/health')
+  return api.get('/system/health', { skipErrorHandler: true } as any)
 }
 
 export function getVersion() {
@@ -24,5 +24,5 @@ export function getVersion() {
 }
 
 export function restartServer() {
-  return api.post('/system/restart')
+  return api.post('/system/restart', undefined, { skipErrorHandler: true } as any)
 }

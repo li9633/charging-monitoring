@@ -3,6 +3,7 @@
 # =================================================================
 
 import logging
+import os
 from collections import deque
 from datetime import datetime, timedelta, timezone
 from typing import ClassVar
@@ -11,6 +12,18 @@ import urllib3
 
 # 禁用 SSL 警告（仅用于测试/内部 API）
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# =================================================================
+# 运行环境（类似 Spring Boot 的 spring.profiles.active）
+# =================================================================
+os.environ.setdefault('APP_ENV', 'production')
+APP_ENV = os.environ['APP_ENV']
+print(f"当前运行环境: {APP_ENV}")
+
+
+def is_dev():
+    """运行时判断是否为开发模式，比模块级常量更可靠"""
+    return os.environ.get('APP_ENV') == 'development'
 
 # 充电桩 API 基础地址
 basic_url = "https://api-mini.cdyun.vip"

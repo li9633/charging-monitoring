@@ -24,6 +24,12 @@ from routes.system_routes import system_bp
 
 STATIC_DIR = "../frontend/dist"
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
+
+# ===== UTF-8 全局配置 =====
+app.json.ensure_ascii = False
+app.config['JSONIFY_MIMETYPE'] = 'application/json; charset=utf-8'
+app.config['JSON_AS_ASCII'] = False
+
 shutdown_event = threading.Event()
 logger = logging.getLogger(__name__)
 
@@ -43,7 +49,7 @@ def serve_spa(_e):
     index_path = os.path.join(STATIC_DIR, "index.html")
     if not os.path.isfile(index_path):
         return "前端未构建，请先执行: cd frontend && npm run build", 503
-    return send_file(index_path)
+    return send_file(index_path, mimetype='text/html; charset=utf-8')
 
 
 def check_loop():
