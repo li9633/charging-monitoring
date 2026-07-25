@@ -1,4 +1,3 @@
-# d:\MyCodeProject\charging-monitoring\python\main.py
 # =================================================================
 # 充电桩监控系统 - 主入口（守护进程）
 # 启动 HTTP 服务 + 后台定时检测，前端通过 /api/report 获取数据

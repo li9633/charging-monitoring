@@ -1,4 +1,3 @@
-# d:\MyCodeProject\charging-monitoring\python\api.py
 # =================================================================
 # 充电桩监控系统 - API 网络层
 # 负责：HTTP 请求、桩号状态并发查询
