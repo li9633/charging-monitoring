@@ -4,8 +4,10 @@
 # 负责：控制台离线时段分析 + HTML 报告生成
 # =================================================================
 
+from datetime import datetime, timedelta, timezone
+
 from config import pile_tag_map
-from db import query_report_data
+from db import get_location_map, query_report_data, query_today_data
 
 
 def _merge_suspicious_ranges(hours):
@@ -151,5 +153,56 @@ def get_report_data():
         "max_time": data["max_time"],
         "total": data["total"],
         "last_check": data["last_check"],
+        "piles": piles
+    }
+
+
+def get_today_data():
+    """返回今日各桩每小时状态，供前端今日时间线使用"""
+    today_data = query_today_data()
+    location_map = get_location_map()
+
+    piles = []
+    for pile_no in sorted(today_data.keys()):
+        hour_data = today_data[pile_no]
+        location = location_map.get(pile_no, "未知")
+        tag = pile_tag_map.get(pile_no, "")
+        loc_display = f"[{tag}] {location}" if tag else location
+
+        hours = []
+        total_offline = 0
+        total_checks = 0
+        for hour in range(24):
+            hd = hour_data.get(hour, {"offline": 0, "total": 0})
+            o, c = hd["offline"], hd["total"]
+            total_offline += o
+            total_checks += c
+
+            if c == 0:
+                status = "nodata"
+            elif o > 0:
+                status = "offline"
+            else:
+                status = "online"
+
+            hours.append({
+                "hour": hour,
+                "label": f"{hour:02d}:00",
+                "checks": c,
+                "offline": o,
+                "status": status
+            })
+
+        piles.append({
+            "pile_no": pile_no,
+            "location": location,
+            "loc_display": loc_display,
+            "total_checks": total_checks,
+            "total_offline": total_offline,
+            "hours": hours
+        })
+
+    return {
+        "date": datetime.now(tz=timezone(timedelta(hours=8))).strftime("%Y-%m-%d"),
         "piles": piles
     }

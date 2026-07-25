@@ -31,34 +31,37 @@ def init_db():
 
 
 def log_results_to_db(all_results):
-    """将本轮所有查询结果写入数据库
+    """将本轮所有查询结果批量写入数据库
 
     Args:
         all_results: [(pile_no, location, status_data), ...]
     """
     conn = sqlite3.connect(DB_PATH)
     now = datetime.now(tz=timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S")
-    for pile_no, location, status_data in all_results:
-        status_code = status_data.get('status', -1) if status_data else -1
-        conn.execute(
-            "INSERT INTO pile_status_log (pile_no, location, status, check_time) VALUES (?, ?, ?, ?)",
-            (pile_no, location, status_code, now)
-        )
+    rows = [
+        (pile_no, location, status_data.get('status', -1) if status_data else -1, now)
+        for pile_no, location, status_data in all_results
+    ]
+    conn.executemany(
+        "INSERT INTO pile_status_log (pile_no, location, status, check_time) VALUES (?, ?, ?, ?)",
+        rows
+    )
     conn.commit()
     conn.close()
-    print(f"已写入 {len(all_results)} 条状态记录到数据库")
+    print(f"已写入 {len(rows)} 条状态记录到数据库")
 
 
 def cleanup_old_data(days=30):
-    """删除超过指定天数的旧数据"""
+    """删除超过指定天数的旧数据，并回收磁盘空间"""
     cutoff = (datetime.now(tz=timezone(timedelta(hours=8))) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.execute("DELETE FROM pile_status_log WHERE check_time < ?", (cutoff,))
     deleted = cursor.rowcount
     conn.commit()
-    conn.close()
     if deleted > 0:
-        print(f"已清理 {deleted} 条超过 {days} 天的旧数据")
+        conn.execute("VACUUM")
+        print(f"已清理 {deleted} 条超过 {days} 天的旧数据，并回收磁盘空间")
+    conn.close()
 
 
 def query_report_data():
@@ -111,3 +114,39 @@ def query_report_data():
         "location_map": location_map,
         "last_check": last_check
     }
+
+
+def query_today_data():
+    """查询今日各桩每小时的在线/离线状态"""
+    today_start = datetime.now(tz=timezone(timedelta(hours=8))).strftime("%Y-%m-%d 00:00:00")
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT pile_no,
+               CAST(strftime('%H', check_time) AS INTEGER) as hour,
+               SUM(CASE WHEN status = 2 THEN 1 ELSE 0 END) as offline_count,
+               COUNT(*) as total_count
+        FROM pile_status_log
+        WHERE check_time >= ?
+        GROUP BY pile_no, hour
+        ORDER BY pile_no, hour
+    """, (today_start,))
+    rows = cursor.fetchall()
+    conn.close()
+
+    result = {}
+    for pile_no, hour, offline, total in rows:
+        if pile_no not in result:
+            result[pile_no] = {}
+        result[pile_no][hour] = {"offline": offline, "total": total}
+    return result
+
+
+def get_location_map():
+    """轻量查询：仅获取桩号与位置的映射"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT pile_no, location FROM pile_status_log")
+    result = {r[0]: r[1] for r in cursor.fetchall()}
+    conn.close()
+    return result
