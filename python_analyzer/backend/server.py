@@ -3,6 +3,7 @@
 # 负责：Flask HTTP 服务 + 后台定时检测循环
 # =================================================================
 
+import logging
 import sqlite3
 import threading
 from datetime import datetime, timedelta, timezone
@@ -12,12 +13,19 @@ from waitress import serve
 
 from analyzer import get_history_data, get_report_data
 from api import check_offline_piles
-from config import CHECK_INTERVAL, HTTP_PORT, pile_tag_map
+from config import (
+    CHECK_INTERVAL,
+    HTTP_PORT,
+    MemoryLogHandler,
+    pile_tag_map,
+    setup_logging,
+)
 from db import cleanup_old_data, init_db
 
 STATIC_DIR = "frontend/dist"
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
 shutdown_event = threading.Event()
+logger = logging.getLogger(__name__)
 
 
 @app.route("/")
@@ -48,6 +56,16 @@ def api_history():
     return jsonify(get_history_data(tag_filter=tag, pile_no_filter=pile_no))
 
 
+@app.route("/api/logs")
+def api_logs():
+    """返回后端运行日志，支持按级别筛选"""
+    level = request.args.get("level", None)
+    limit = request.args.get("limit", "100")
+    limit = int(limit) if limit.isdigit() else 100
+    logs = MemoryLogHandler.get_logs(level=level, limit=limit)
+    return jsonify({"logs": logs, "total": len(logs)})
+
+
 @app.route("/api/tags")
 def api_tags():
     """返回所有可用标签及对应桩号"""
@@ -63,39 +81,36 @@ def check_loop():
     """后台定时检测：定期查询充电桩状态并写入数据库"""
     while not shutdown_event.is_set():
         try:
-            now_str = datetime.now(tz=timezone(
-                timedelta(hours=8))).strftime("%H:%M:%S")
-            print(f"\n[{now_str}] 开始新一轮检测...")
+            logger.info("开始新一轮检测...")
             check_offline_piles()
             cleanup_old_data()
-            print(
-                f"[{datetime.now(tz=timezone(timedelta(hours=8))).strftime('%H:%M:%S')}] 本轮完成，{CHECK_INTERVAL}秒后进行下一轮"
-            )
+            logger.info("本轮完成，%s 秒后进行下一轮", CHECK_INTERVAL)
         except (OSError, ValueError, sqlite3.Error) as e:
-            print(f"检测异常: {e}")
+            logger.error("检测异常: %s", e)
         shutdown_event.wait(CHECK_INTERVAL)
 
 
 def start_server():
     """启动 HTTP 服务 + 后台定时检测"""
+    setup_logging()
     init_db()
 
-    print("=" * 50)
-    print("  充电桩监控系统")
-    print("=" * 50)
+    logger.info("=" * 50)
+    logger.info("  充电桩监控系统")
+    logger.info("=" * 50)
 
     checker = threading.Thread(
         target=check_loop, daemon=True, name="PileChecker"
     )
     checker.start()
 
-    print(f"\n✅ HTTP 报告服务已启动: http://localhost:{HTTP_PORT}")
-    print(f"✅ 后台检测间隔: {CHECK_INTERVAL} 秒")
-    print("按 Ctrl+C 停止服务\n")
+    logger.info("HTTP 报告服务已启动: http://localhost:%s", HTTP_PORT)
+    logger.info("后台检测间隔: %s 秒", CHECK_INTERVAL)
+    logger.info("按 Ctrl+C 停止服务")
 
     try:
         serve(app, host="0.0.0.0", port=HTTP_PORT)
     except KeyboardInterrupt:
-        print("\n正在关闭服务...")
+        logger.info("正在关闭服务...")
         shutdown_event.set()
-        print("服务已停止")
+        logger.info("服务已停止")

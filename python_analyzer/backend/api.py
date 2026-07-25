@@ -4,6 +4,7 @@
 # 负责：HTTP 请求、桩号状态并发查询
 # =================================================================
 
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -11,6 +12,8 @@ import requests
 
 from config import basic_url, headers, pile_no, pile_tag_map
 from db import log_results_to_db
+
+logger = logging.getLogger(__name__)
 
 
 def fetch_api(config, max_retries=3, retry_delay=1.0):
@@ -37,20 +40,21 @@ def fetch_api(config, max_retries=3, retry_delay=1.0):
             resp.raise_for_status()
             elapsed_ms = (time.time() - start) * 1000
             data = resp.json()
-            print(f"[{config['name']}] 成功, 耗时 {elapsed_ms:.0f} 毫秒")
+            logger.debug("[%s] 成功, 耗时 %.0f 毫秒", config['name'], elapsed_ms)
             return data
         except requests.exceptions.HTTPError as e:
             elapsed_ms = (time.time() - start) * 1000
             if e.response is not None and e.response.status_code == 503:
-                print(f"[{config['name']}] 503 限流, 耗时 {elapsed_ms:.0f} 毫秒, 第 {attempt} 次尝试, {retry_delay} 秒后重试")
+                logger.warning("[%s] 503 限流, 耗时 %.0f 毫秒, 第 %s 次尝试", config['name'], elapsed_ms, attempt)
                 if attempt < max_retries:
                     time.sleep(retry_delay)
                     continue
-            print(f"[{config['name']}] 请求失败({e.response.status_code if e.response else 'N/A'}), 耗时 {elapsed_ms:.0f} 毫秒: {e}")
+            logger.error("[%s] HTTP错误(%s), 耗时 %.0f 毫秒: %s", config['name'],
+                          e.response.status_code if e.response else 'N/A', elapsed_ms, e)
             return None
         except requests.exceptions.RequestException as e:
             elapsed_ms = (time.time() - start) * 1000
-            print(f"[{config['name']}] 请求失败, 耗时 {elapsed_ms:.0f} 毫秒: {e}")
+            logger.error("[%s] 请求失败, 耗时 %.0f 毫秒: %s", config['name'], elapsed_ms, e)
             return None
     return None
 
@@ -111,15 +115,13 @@ def check_offline_piles():
                 offline_piles.append((p, location, status_data))
 
     if offline_piles:
-        print("\n=== 离线充电桩列表 ===")
+        logger.warning("=== 离线充电桩列表 ===")
         for p, location, _status_data in offline_piles:
             tag = pile_tag_map.get(p, "")
             location_display = f"[{tag}] {location}" if tag else location
-            print(f"\n充电桩编号: {p}")
-            print(f"位置: {location_display}")
-            print("状态: 离线")
+            logger.warning("充电桩编号: %s, 位置: %s", p, location_display)
 
-    print(f"\n共发现 {len(offline_piles)} 个离线充电桩")
+    logger.info("共发现 %s 个离线充电桩", len(offline_piles))
 
     log_results_to_db(all_results)
     return all_results

@@ -3,6 +3,11 @@
 # 充电桩监控系统 - 全局配置
 # =================================================================
 
+import logging
+from collections import deque
+from datetime import datetime, timedelta, timezone
+from typing import ClassVar
+
 import urllib3
 
 # 禁用 SSL 警告（仅用于测试/内部 API）
@@ -39,3 +44,52 @@ pile_no = {
     "0000280": "浙江省杭州市钱塘区经济开发区学林支路与2号大街辅路交叉口西北角杭州钱塘宝龙广场",
     "0000225": "浙江省杭州市钱塘区经济开发区学林支路与2号大街辅路交叉口西北角杭州钱塘宝龙广场"
 }
+
+
+# =================================================================
+# 日志系统：内存缓冲 + 控制台输出
+# =================================================================
+
+class MemoryLogHandler(logging.Handler):
+    """自定义日志处理器：将日志存入内存双端队列，供前端 API 查询"""
+    _buffer: ClassVar[deque] = deque(maxlen=2000)
+
+    def emit(self, record):
+        t = datetime.fromtimestamp(record.created, tz=timezone(timedelta(hours=8)))
+        self._buffer.append({
+            "time": t.strftime("%Y-%m-%d %H:%M:%S"),
+            "level": record.levelname,
+            "message": record.getMessage()
+        })
+
+    @classmethod
+    def get_logs(cls, level=None, limit=100):
+        """获取最近的日志
+
+        Args:
+            level: 可选，按级别筛选（DEBUG/INFO/WARNING/ERROR）
+            limit: 返回条数，默认 100
+        """
+        logs = list(cls._buffer)
+        if level:
+            logs = [l for l in logs if l["level"] == level.upper()]
+        return logs[-limit:]
+
+
+def setup_logging():
+    """初始化日志系统：控制台 + 内存双通道"""
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+
+    # 屏蔽第三方库的 DEBUG 日志（urllib3、requests 等）
+    for lib in ["urllib3", "requests", "charset_normalizer"]:
+        logging.getLogger(lib).setLevel(logging.WARNING)
+
+    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+
+    console = logging.StreamHandler()
+    console.setFormatter(fmt)
+    root.addHandler(console)
+
+    memory = MemoryLogHandler()
+    root.addHandler(memory)

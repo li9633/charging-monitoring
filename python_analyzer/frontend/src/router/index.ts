@@ -13,6 +13,11 @@ const router = createRouter({
           component: () => import('@/views/Dashboard.vue'),
         },
         {
+          path: 'logs',
+          name: 'LogViewer',
+          component: () => import('@/views/LogViewer.vue'),
+        },
+        {
           path: 'history',
           name: 'HistoryAnalysis',
           component: () => import('@/views/HistoryAnalysis.vue'),

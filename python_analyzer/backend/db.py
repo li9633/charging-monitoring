@@ -4,10 +4,13 @@
 # 负责：建表、写入检测结果、查询分析数据
 # =================================================================
 
+import logging
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
 from config import DB_PATH
+
+logger = logging.getLogger(__name__)
 
 
 def init_db():
@@ -48,7 +51,7 @@ def log_results_to_db(all_results):
     )
     conn.commit()
     conn.close()
-    print(f"已写入 {len(rows)} 条状态记录到数据库")
+    logger.info("已写入 %s 条状态记录到数据库", len(rows))
 
 
 def cleanup_old_data(days=30):
@@ -60,7 +63,7 @@ def cleanup_old_data(days=30):
     conn.commit()
     if deleted > 0:
         conn.execute("VACUUM")
-        print(f"已清理 {deleted} 条超过 {days} 天的旧数据，并回收磁盘空间")
+        logger.info("已清理 %s 条超过 %s 天的旧数据，并回收磁盘空间", deleted, days)
     conn.close()
 
 
@@ -89,7 +92,7 @@ def query_report_data(start_date=None, end_date=None):
         params.append(end_date + " 23:59:59")
 
     where_clause = " AND ".join(conditions) if conditions else "1=1"
-    print(f"[SQL] 条件: {where_clause} | 参数: {params}")
+    logger.debug("SQL条件: %s | 参数: %s", where_clause, params)
 
     cursor.execute(
         f"SELECT MIN(check_time), MAX(check_time), COUNT(*) FROM pile_status_log WHERE {where_clause}",
@@ -101,7 +104,7 @@ def query_report_data(start_date=None, end_date=None):
         return None
 
     min_time, max_time, total = row
-    print(f"[SQL] 数据范围: {min_time} ~ {max_time}, 总记录: {total}")
+    logger.debug("数据范围: %s ~ %s, 总记录: %s", min_time, max_time, total)
 
     cursor.execute(f"""
         SELECT pile_no,
@@ -114,7 +117,7 @@ def query_report_data(start_date=None, end_date=None):
         ORDER BY pile_no, hour
     """, params)
     rows = cursor.fetchall()
-    print(f"[SQL] 按桩号小时聚合结果: {len(rows)} 行")
+    logger.debug("按桩号小时聚合结果: %s 行", len(rows))
 
     pile_hour_data = {}
     for pile_no, hour, o, c in rows:
@@ -122,7 +125,7 @@ def query_report_data(start_date=None, end_date=None):
             pile_hour_data[pile_no] = {}
         pile_hour_data[pile_no][hour] = (o, c)
 
-    print(f"[SQL] 涉及桩号: {list(pile_hour_data.keys())}")
+    logger.debug("涉及桩号: %s", list(pile_hour_data.keys()))
 
     cursor.execute(f"SELECT DISTINCT pile_no, location FROM pile_status_log WHERE {where_clause}", params)
     location_map = {r[0]: r[1] for r in cursor.fetchall()}

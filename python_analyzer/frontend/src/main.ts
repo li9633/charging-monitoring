@@ -13,6 +13,9 @@ import {
   faTags,
   faTrophy,
   faCalendarDay,
+  faTerminal,
+  faFilter,
+  faTrash,
 } from '@fortawesome/free-solid-svg-icons'
 
 import App from './App.vue'
@@ -30,6 +33,9 @@ library.add(
   faTags,
   faTrophy,
   faCalendarDay,
+  faTerminal,
+  faFilter,
+  faTrash,
 )
 
 const app = createApp(App)

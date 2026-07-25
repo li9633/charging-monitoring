@@ -28,6 +28,10 @@ function navigate(path: string) {
           <font-awesome-icon icon="chart-line" />
           <span>历史分析</span>
         </el-menu-item>
+        <el-menu-item index="/logs">
+          <font-awesome-icon icon="terminal" />
+          <span>系统日志</span>
+        </el-menu-item>
       </el-menu>
     </header>
 
