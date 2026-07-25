@@ -38,4 +38,5 @@ __screenshots__/
 # Vite
 *.timestamp-*-*.mjs
 
-*.d.ts
+auto-imports.d.ts
+components.d.ts
