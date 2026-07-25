@@ -24,6 +24,9 @@ headers = {
 # SQLite 数据库文件路径
 DB_PATH = "pile_status.db"
 
+# API 全局前缀（类似 Spring Boot 的 server.servlet.context-path）
+API_PREFIX = "/api"
+
 # 守护进程配置
 CHECK_INTERVAL = 60  # 后台检测间隔（秒），默认 5 分钟
 HTTP_PORT = 9901      # HTTP 报告服务端口

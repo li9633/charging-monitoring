@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import api from '@/api/request'
+import { getHistory } from '@/api/modules/pile'
 
 interface HourData {
   hour: number
@@ -85,7 +85,7 @@ const topOfflinePiles = computed(() => {
 async function fetchData() {
   loading.value = true
   try {
-    const res = await api.get('/history')
+    const res = await getHistory({})
     data.value = res.data
     error.value = false
   } catch (e) {

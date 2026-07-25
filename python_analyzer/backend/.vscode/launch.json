@@ -8,9 +8,8 @@
             "name": "main.py",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}\\main.py",
-            "console": "integratedTerminal",
-            "python": "C:\\Users\\user5\\.pyenv\\pyenv-win\\versions\\3.13.7\\python.exe"
+            "program": "${workspaceFolder}\\run.py",
+            "console": "integratedTerminal"
         }
     ]
 }

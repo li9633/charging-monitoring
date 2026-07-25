@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { fetchLogs } from '@/api/modules/logs'
-import type { LogEntry } from '@/api/modules/logs'
+import { getLogs } from '@/api/modules/system'
+import type { LogEntry } from '@/api/modules/system'
 
 const REFRESH_INTERVAL = 3000
 const levels = ['', 'DEBUG', 'INFO', 'WARNING', 'ERROR'] as const
@@ -14,8 +14,8 @@ let timer: ReturnType<typeof setInterval> | null = null
 
 async function fetchNow() {
   try {
-    const res = await fetchLogs(currentLevel.value || undefined)
-    logs.value = res.logs
+    const res = await getLogs({ level: currentLevel.value || undefined })
+    logs.value = res.data.logs
     await nextTick()
     scrollToBottom()
   } catch (e) {

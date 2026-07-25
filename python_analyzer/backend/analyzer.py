@@ -125,6 +125,8 @@ def get_report_data(tag_filter=None, pile_no_filter=None, start_date=None, end_d
                 suspicious.append(hour)
             elif r >= 50 and c >= 2:
                 css_class = "w"
+            elif r >= 80 and c >= 1:
+                css_class = "w"
             elif c > 0:
                 css_class = "g"
             hours.append({

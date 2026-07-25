@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import api from '@/api/request'
+import { getReport, getTags } from '@/api/modules/pile'
 import StatCards from '@/components/StatCards.vue'
 import PileCard from '@/components/PileCard.vue'
 
@@ -77,9 +77,9 @@ const counts = computed(() => {
   }
 })
 
-async function fetchTags() {
+async function loadTags() {
   try {
-    const res = await api.get('/tags')
+    const res = await getTags()
     tags.value = res.data.all_tags || []
   } catch (e) {
     console.error('标签获取失败:', e)
@@ -108,7 +108,7 @@ async function fetchData() {
       params.start_date = todayStr()
       params.end_date = todayStr()
     }
-    const res = await api.get('/report', { params })
+    const res = await getReport(params)
     data.value = res.data
     error.value = false
     countdown.value = 60
@@ -130,7 +130,7 @@ let timer: ReturnType<typeof setInterval> | undefined
 let cd: ReturnType<typeof setInterval> | undefined
 
 onMounted(() => {
-  fetchTags()
+  loadTags()
   fetchData()
   timer = setInterval(fetchData, 60000)
   cd = setInterval(() => {
