@@ -25,7 +25,6 @@ export default defineConfig({
     },
   },
   css: {
-    transformer: 'postcss',
     preprocessorOptions: {
       scss: {
         additionalData: `@use "@/styles/variables" as *;`,
