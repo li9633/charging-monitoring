@@ -11,18 +11,18 @@ export interface LogsResponse {
   total: number
 }
 
-export function getLogs(params: { level?: string; limit?: number }) {
-  return api.get('/system/logs', { params })
+export function getLogs(params: { level?: string; limit?: number }): Promise<LogsResponse> {
+  return api.get('/system/logs', { params }) as any
 }
 
-export function healthCheck() {
-  return api.get('/system/health', { skipErrorHandler: true } as any)
+export function healthCheck(): Promise<any> {
+  return api.get('/system/health', { skipErrorHandler: true } as any) as any
 }
 
-export function getVersion() {
-  return api.get('/system/version')
+export function getVersion(): Promise<{ version: number }> {
+  return api.get('/system/version') as any
 }
 
-export function restartServer() {
-  return api.post('/system/restart', undefined, { skipErrorHandler: true } as any)
+export function restartServer(): Promise<any> {
+  return api.post('/system/restart', undefined, { skipErrorHandler: true } as any) as any
 }

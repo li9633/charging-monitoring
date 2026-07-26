@@ -1,6 +1,5 @@
 # =================================================================
-# 充电桩监控系统 - API 网络层
-# 负责：HTTP 请求、桩号状态并发查询
+# 监控 Service — 充电桩状态查询 + 离线检测
 # =================================================================
 
 import logging
@@ -10,22 +9,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 from config import basic_url, headers, pile_no, pile_tag_map
-from db import log_results_to_db
+from mapper.pile_mapper import insert_batch
 
 logger = logging.getLogger(__name__)
 
 
 def fetch_api(config, max_retries=3, retry_delay=1.0):
-    """根据配置发起 GET 请求，返回 JSON 数据，支持 503 自动重试
-
-    Args:
-        config: 请求配置字典，含 name/url/params
-        max_retries: 最大重试次数（默认 3 次）
-        retry_delay: 每次重试前等待秒数（默认 1 秒）
-
-    Returns:
-        dict: 成功返回 JSON 数据，失败返回 None
-    """
+    """根据配置发起 GET 请求，返回 JSON 数据，支持 503 自动重试"""
     for attempt in range(1, max_retries + 1):
         start = time.time()
         try:
@@ -44,30 +34,24 @@ def fetch_api(config, max_retries=3, retry_delay=1.0):
         except requests.exceptions.HTTPError as e:
             elapsed_ms = (time.time() - start) * 1000
             if e.response is not None and e.response.status_code == 503:
-                logger.warning("[%s] 503 限流, 耗时 %.0f 毫秒, 第 %s 次尝试", config['name'], elapsed_ms, attempt)
+                logger.warning("[%s] 503 限流, 耗时 %.0f 毫秒, 第 %s 次尝试",
+                               config['name'], elapsed_ms, attempt)
                 if attempt < max_retries:
                     time.sleep(retry_delay)
                     continue
             logger.error("[%s] HTTP错误(%s), 耗时 %.0f 毫秒: %s", config['name'],
-                          e.response.status_code if e.response else 'N/A', elapsed_ms, e)
+                         e.response.status_code if e.response else 'N/A', elapsed_ms, e)
             return None
         except requests.exceptions.RequestException as e:
             elapsed_ms = (time.time() - start) * 1000
-            logger.error("[%s] 请求失败, 耗时 %.0f 毫秒: %s", config['name'], elapsed_ms, e)
+            logger.error("[%s] 请求失败, 耗时 %.0f 毫秒: %s",
+                         config['name'], elapsed_ms, e)
             return None
     return None
 
 
 def check_single_pile(pile, location):
-    """查询单个充电桩状态，3 次重试全部失败视为离线
-
-    Args:
-        pile: 桩号（如 "0000224"）
-        location: 位置信息
-
-    Returns:
-        tuple: (桩号, 位置, 状态数据或模拟离线数据)
-    """
+    """查询单个充电桩状态，3 次重试全部失败视为离线"""
     status_config = {
         "name": f"充电桩状态_{pile}",
         "url": f"{basic_url}/btzncdz/charge-pile/show",
@@ -80,12 +64,7 @@ def check_single_pile(pile, location):
 
 
 def check_offline_piles():
-    """批处理查询桩号状态，3 次全部失败才记录为离线
-
-    执行方式:
-        - 按 batch_size（默认 2）分批
-        - 每批并发查询，等该批全部完成后再开始下一批
-    """
+    """批处理查询桩号状态，3 次全部失败才记录为离线"""
     pile_list = list(pile_no.items())
     batch_size = 2
     total = len(pile_list)
@@ -122,5 +101,5 @@ def check_offline_piles():
 
     logger.info("共发现 %s 个离线充电桩", len(offline_piles))
 
-    log_results_to_db(all_results)
+    insert_batch(all_results)
     return all_results

@@ -86,7 +86,7 @@ async function fetchData() {
   loading.value = true
   try {
     const res = await getHistory({})
-    data.value = res.data
+    data.value = res
     error.value = false
   } catch (e) {
     console.error('数据获取失败:', e)

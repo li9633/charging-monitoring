@@ -15,7 +15,7 @@ let timer: ReturnType<typeof setInterval> | null = null
 async function fetchNow() {
   try {
     const res = await getLogs({ level: currentLevel.value || undefined })
-    logs.value = res.data.logs
+    logs.value = res.logs
     await nextTick()
     scrollToBottom()
   } catch (e) {

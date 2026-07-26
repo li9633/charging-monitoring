@@ -9,14 +9,14 @@ export function getReport(params: {
   pile_no?: string
   start_date?: string
   end_date?: string
-}) {
-  return api.get('/pile/report', { params })
+}): Promise<any> {
+  return api.get('/pile/report', { params }) as any
 }
 
-export function getHistory(params: { tag?: string; pile_no?: string }) {
-  return api.get('/pile/history', { params })
+export function getHistory(params: { tag?: string; pile_no?: string }): Promise<any> {
+  return api.get('/pile/history', { params }) as any
 }
 
-export function getTags() {
-  return api.get('/pile/tags')
+export function getTags(): Promise<TagsResponse> {
+  return api.get('/pile/tags') as any
 }

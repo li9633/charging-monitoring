@@ -84,7 +84,7 @@ const counts = computed(() => {
 async function loadTags() {
   try {
     const res = await getTags()
-    tags.value = res.data.all_tags || []
+    tags.value = res?.all_tags || []
   } catch (e) {
     console.error('标签获取失败:', e)
   }
@@ -113,7 +113,7 @@ async function fetchData() {
       params.end_date = todayStr()
     }
     const res = await getReport(params)
-    data.value = res.data
+    data.value = res
     error.value = false
     countdown.value = 60
   } catch (e) {

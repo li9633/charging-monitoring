@@ -22,12 +22,10 @@ onMounted(async () => {
   for (let i = 0; i < 30; i++) {
     await new Promise((r) => setTimeout(r, 1000))
     try {
-      const res = await healthCheck()
-      if (res.status === 200) {
-        clearInterval(timer)
-        router.replace(from)
-        return
-      }
+      await healthCheck()
+      clearInterval(timer)
+      router.replace(from)
+      return
     } catch {
       /* 继续等待 */
     }

@@ -11,16 +11,16 @@ import threading
 from cheroot.wsgi import Server
 from flask import Flask, redirect, send_file
 
-from api import check_offline_piles
 from config import (
     API_PREFIX,
     CHECK_INTERVAL,
     HTTP_PORT,
-    setup_logging,
 )
-from db import cleanup_old_data, init_db
-from routes.pile_routes import pile_bp
-from routes.system_routes import system_bp
+from controller.pile_controller import pile_bp
+from controller.system_controller import system_bp
+from mapper.pile_mapper import delete_old_data, init_db
+from service.monitor_service import check_offline_piles
+from utils.log_utils import setup_logging
 
 STATIC_DIR = "../frontend/dist"
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
@@ -58,7 +58,7 @@ def check_loop():
         try:
             logger.info("开始新一轮检测...")
             check_offline_piles()
-            cleanup_old_data()
+            delete_old_data()
             logger.info("本轮完成，%s 秒后进行下一轮", CHECK_INTERVAL)
         except (OSError, ValueError, sqlite3.Error) as e:
             logger.error("检测异常: %s", e)
@@ -83,6 +83,7 @@ def start_server():
     logger.info("后台检测间隔: %s 秒", CHECK_INTERVAL)
     logger.info("按 Ctrl+C 停止服务")
 
+    server = None
     try:
         server = Server(("0.0.0.0", HTTP_PORT), app)
         server.start()
@@ -91,5 +92,6 @@ def start_server():
     finally:
         logger.info("正在关闭服务...")
         shutdown_event.set()
-        server.stop()
+        if server:
+            server.stop()
         logger.info("服务已停止")

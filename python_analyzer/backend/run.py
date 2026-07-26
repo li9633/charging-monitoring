@@ -8,7 +8,7 @@ import subprocess
 import sys
 import time
 
-SIGNAL_FILE = ".restart_signal"
+SIGNAL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".restart_signal")
 
 while True:
     print("🚀 启动服务...")
