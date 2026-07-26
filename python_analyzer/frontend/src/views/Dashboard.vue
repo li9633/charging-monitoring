@@ -47,14 +47,18 @@ const refreshing = ref(false)
 const error = ref(false)
 const countdown = ref(60)
 
+function fmtDate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function todayStr() {
-  return new Date().toISOString().slice(0, 10)
+  return fmtDate(new Date())
 }
 
 function daysAgo(n: number) {
   const d = new Date()
   d.setDate(d.getDate() - n)
-  return d.toISOString().slice(0, 10)
+  return fmtDate(d)
 }
 
 const sortedPiles = computed<PileData[]>(() => {

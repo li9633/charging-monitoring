@@ -8,6 +8,7 @@ const route = useRoute()
 
 const activeMenu = computed(() => route.path)
 const restarting = ref(false)
+const isDev = import.meta.env.DEV
 
 function navigate(path: string) {
   router.push(path)
@@ -61,7 +62,7 @@ async function handleRestart() {
         </el-menu-item>
       </el-menu>
       <div class="nav-actions">
-        <el-tooltip content="重启后端服务" placement="bottom">
+        <el-tooltip v-if="isDev" content="重启后端服务" placement="bottom">
           <el-button
             size="small"
             circle
