@@ -85,10 +85,10 @@ def query_report_data(start_date=None, end_date=None):
     params = []
     if start_date is not None:
         conditions.append("check_time >= ?")
-        params.append(start_date + " 00:00:00")
+        params.append(start_date)
     if end_date is not None:
         conditions.append("check_time < ?")
-        params.append(end_date + " 23:59:59")
+        params.append(end_date)
 
     where_clause = " AND ".join(conditions) if conditions else "1=1"
     logger.debug("SQL条件: %s | 参数: %s", where_clause, params)
