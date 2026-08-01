@@ -26,7 +26,7 @@ interface PileData {
   suspicious_ranges: string
   hours: HourData[]
   activeNames: string[]
-  tagType: string
+  tagType: 'danger' | 'warning' | 'success'
 }
 
 interface ReportData {
@@ -67,7 +67,8 @@ const sortedPiles = computed<PileData[]>(() => {
     .map((p) => ({
       ...p,
       activeNames: [],
-      tagType: p.offline_rate >= 50 ? 'danger' : p.offline_rate >= 20 ? 'warning' : 'success',
+      tagType: (p.offline_rate >= 50 ? 'danger' : p.offline_rate >= 20 ? 'warning' : 'success') as
+        'danger' | 'warning' | 'success',
     }))
     .sort((a, b) => a.pile_no.localeCompare(b.pile_no))
 })

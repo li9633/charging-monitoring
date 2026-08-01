@@ -21,7 +21,7 @@ interface PileData {
   suspicious_ranges: string
   hours: HourData[]
   activeNames: string[]
-  tagType: string
+  tagType: 'danger' | 'warning' | 'success'
 }
 
 defineProps<{
