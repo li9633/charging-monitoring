@@ -24,6 +24,11 @@ const router = createRouter({
         },
       ],
     },
+    {
+      path: '/restarting',
+      name: 'Restarting',
+      component: () => import('@/views/Restarting.vue'),
+    },
   ],
 })
 

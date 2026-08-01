@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import api from '@/api/request'
+import { getReport, getTags } from '@/api/modules/pile'
 import StatCards from '@/components/StatCards.vue'
 import PileCard from '@/components/PileCard.vue'
 
@@ -47,14 +47,18 @@ const refreshing = ref(false)
 const error = ref(false)
 const countdown = ref(60)
 
+function fmtDate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function todayStr() {
-  return new Date().toISOString().slice(0, 10)
+  return fmtDate(new Date())
 }
 
 function daysAgo(n: number) {
   const d = new Date()
   d.setDate(d.getDate() - n)
-  return d.toISOString().slice(0, 10)
+  return fmtDate(d)
 }
 
 const sortedPiles = computed<PileData[]>(() => {
@@ -77,10 +81,10 @@ const counts = computed(() => {
   }
 })
 
-async function fetchTags() {
+async function loadTags() {
   try {
-    const res = await api.get('/tags')
-    tags.value = res.data.all_tags || []
+    const res = await getTags()
+    tags.value = res?.all_tags || []
   } catch (e) {
     console.error('标签获取失败:', e)
   }
@@ -108,8 +112,8 @@ async function fetchData() {
       params.start_date = todayStr()
       params.end_date = todayStr()
     }
-    const res = await api.get('/report', { params })
-    data.value = res.data
+    const res = await getReport(params)
+    data.value = res
     error.value = false
     countdown.value = 60
   } catch (e) {
@@ -130,7 +134,7 @@ let timer: ReturnType<typeof setInterval> | undefined
 let cd: ReturnType<typeof setInterval> | undefined
 
 onMounted(() => {
-  fetchTags()
+  loadTags()
   fetchData()
   timer = setInterval(fetchData, 60000)
   cd = setInterval(() => {

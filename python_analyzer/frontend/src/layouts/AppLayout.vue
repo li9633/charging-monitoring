@@ -1,14 +1,42 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { restartServer } from '@/api/modules/system'
 
 const router = useRouter()
 const route = useRoute()
 
 const activeMenu = computed(() => route.path)
+const restarting = ref(false)
+const isDev = import.meta.env.DEV
 
 function navigate(path: string) {
   router.push(path)
+}
+
+async function handleRestart() {
+  try {
+    await ElMessageBox.confirm('重启后服务需要 3-5 秒恢复，确定要重启吗？', '确认重启进程', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return
+  }
+
+  restarting.value = true
+  try {
+    await restartServer()
+  } catch (e: any) {
+    if (e?.response?.status === 403) {
+      ElMessage.warning(e.response.data?.message || '仅开发模式可用')
+      restarting.value = false
+      return
+    }
+    // 服务可能在响应前已关闭，忽略错误，继续跳转
+  }
+  router.push({ name: 'Restarting', query: { from: route.fullPath } })
 }
 </script>
 
@@ -33,6 +61,19 @@ function navigate(path: string) {
           <span>系统日志</span>
         </el-menu-item>
       </el-menu>
+      <div class="nav-actions">
+        <el-tooltip v-if="isDev" content="重启后端服务" placement="bottom">
+          <el-button
+            size="small"
+            circle
+            :loading="restarting"
+            @click="handleRestart"
+            class="restart-btn"
+          >
+            <font-awesome-icon v-if="!restarting" icon="arrows-rotate" />
+          </el-button>
+        </el-tooltip>
+      </div>
     </header>
 
     <main class="main-content">
@@ -124,6 +165,23 @@ body {
       color: $color-blue !important;
       border-bottom-color: $color-blue !important;
       font-weight: $font-weight-semibold;
+    }
+  }
+}
+
+.nav-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+
+  .restart-btn {
+    color: $color-text-secondary;
+    border-color: $color-border;
+    transition: all $transition-fast;
+
+    &:hover {
+      color: $color-red;
+      border-color: $color-red;
     }
   }
 }
