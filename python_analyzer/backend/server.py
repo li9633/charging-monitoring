@@ -1,85 +1,99 @@
 # =================================================================
 # 充电桩监控系统 - 服务层
-# 负责：Flask HTTP 服务 + 后台定时检测循环
+# 负责：FastAPI HTTP 服务 + 后台定时检测循环
 # =================================================================
 
 import logging
-import os
 import sqlite3
 import threading
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
-from cheroot.wsgi import Server
-from flask import Flask, jsonify, redirect, request, send_file
+from fastapi import FastAPI, Query
+from fastapi.responses import FileResponse, RedirectResponse
 
 from analyzer import get_history_data, get_report_data
 from api import check_offline_piles
 from config import (
     CHECK_INTERVAL,
-    HTTP_PORT,
     MemoryLogHandler,
     pile_tag_map,
     setup_logging,
 )
 from db import cleanup_old_data, init_db
 
-STATIC_DIR = "../frontend/dist"
-app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='')
+DIST_DIR = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+app = FastAPI(
+    title="充电桩监控系统",
+    version="1.0.0",
+    description="实时监控充电桩状态，离线检测与数据分析",
+)
 shutdown_event = threading.Event()
 logger = logging.getLogger(__name__)
 
 
-@app.route("/api/report")
-def api_report():
-    tag = request.args.get("tag", None)
-    pile_no = request.args.get("pile_no", None)
+@app.get("/api/report")
+async def api_report(
+    tag: str = Query(None),
+    pile_no: str = Query(None),
+    start_date: str = Query(None),
+    end_date: str = Query(None),
+):
     today = datetime.now(tz=timezone(timedelta(hours=8))).strftime("%Y-%m-%d")
-    start_date = request.args.get("start_date", today)
-    end_date = request.args.get("end_date", today)
-    return jsonify(get_report_data(tag_filter=tag, pile_no_filter=pile_no, start_date=start_date, end_date=end_date))
+    if start_date is None:
+        start_date = today
+    if end_date is None:
+        end_date = today
+    return get_report_data(tag_filter=tag, pile_no_filter=pile_no, start_date=start_date, end_date=end_date)
 
 
-@app.route("/api/history")
-def api_history():
+@app.get("/api/history")
+async def api_history(
+    tag: str = Query(None),
+    pile_no: str = Query(None),
+):
     """历史分析接口：基于全部数据进行分析"""
-    tag = request.args.get("tag", None)
-    pile_no = request.args.get("pile_no", None)
-    return jsonify(get_history_data(tag_filter=tag, pile_no_filter=pile_no))
+    return get_history_data(tag_filter=tag, pile_no_filter=pile_no)
 
 
-@app.route("/api/logs")
-def api_logs():
+@app.get("/api/logs")
+async def api_logs(
+    level: str = Query(None),
+    limit: int = Query(100),
+):
     """返回后端运行日志，支持按级别筛选"""
-    level = request.args.get("level", None)
-    limit = request.args.get("limit", "100")
-    limit = int(limit) if limit.isdigit() else 100
     logs = MemoryLogHandler.get_logs(level=level, limit=limit)
-    return jsonify({"logs": logs, "total": len(logs)})
+    return {"logs": logs, "total": len(logs)}
 
 
-@app.route("/api/tags")
-def api_tags():
+@app.get("/api/tags")
+async def api_tags():
     """返回所有可用标签及对应桩号"""
     tags = {}
     for pile, tag in pile_tag_map.items():
         if tag not in tags:
             tags[tag] = []
         tags[tag].append(pile)
-    return jsonify({"tags": tags, "all_tags": list(tags.keys())})
+    return {"tags": tags, "all_tags": list(tags.keys())}
 
 
-# ===== SPA 兜底：404 时返回 index.html（等价于 nginx try_files） =====
-@app.route("/index.html")
-def redirect_index_to_root():
-    return redirect("/")
+@app.get("/health", tags=["系统"])
+def health_check():
+    return {"status": "ok", "service": "充电桩监控系统"}
 
 
-@app.errorhandler(404)
-def serve_spa(_e):
-    index_path = os.path.join(STATIC_DIR, "index.html")
-    if not os.path.isfile(index_path):
-        return "前端未构建，请先执行: cd frontend && npm run build", 503
-    return send_file(index_path)
+# ===== SPA 兜底：未匹配 API 路由时返回 index.html =====
+@app.get("/index.html")
+async def redirect_index_to_root():
+    return RedirectResponse(url="/")
+
+
+@app.get("/{full_path:path}")
+def serve_spa(full_path: str):
+    file_path = DIST_DIR / full_path
+    if file_path.is_file():
+        return FileResponse(file_path)
+    return FileResponse(DIST_DIR / "index.html")
 
 
 def check_loop():
@@ -95,8 +109,8 @@ def check_loop():
         shutdown_event.wait(CHECK_INTERVAL)
 
 
-def start_server():
-    """启动 HTTP 服务 + 后台定时检测"""
+def start_background_checker():
+    """初始化系统并启动后台定时检测线程"""
     setup_logging()
     init_db()
 
@@ -109,17 +123,4 @@ def start_server():
     )
     checker.start()
 
-    logger.info("HTTP 报告服务已启动: http://localhost:%s", HTTP_PORT)
     logger.info("后台检测间隔: %s 秒", CHECK_INTERVAL)
-    logger.info("按 Ctrl+C 停止服务")
-
-    try:
-        server = Server(("0.0.0.0", HTTP_PORT), app)
-        server.start()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        logger.info("正在关闭服务...")
-        shutdown_event.set()
-        server.stop()
-        logger.info("服务已停止")

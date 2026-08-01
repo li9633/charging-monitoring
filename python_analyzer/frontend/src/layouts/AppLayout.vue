@@ -41,7 +41,7 @@ function navigate(path: string) {
   </div>
 </template>
 
-<style lang="scss">
+<style lang="scss" scoped>
 @use '../styles/variables' as *;
 
 [v-cloak] {

@@ -12,7 +12,6 @@ export default defineConfig({
     vue(),
     vueDevTools(),
     AutoImport({
-      dts: 'src/auto-imports.d.ts',
       resolvers: [ElementPlusResolver()],
     }),
     Components({
@@ -34,6 +33,13 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://localhost:9901',
+    },
+  },
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: true,
+      },
     },
   },
 })

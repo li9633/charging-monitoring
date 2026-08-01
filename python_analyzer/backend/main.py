@@ -1,21 +1,13 @@
 # =================================================================
-# 充电桩监控系统 - 主入口（守护进程）
-# 启动 HTTP 服务 + 后台定时检测，前端通过 /api/report 获取数据
-# 主程序异常退出时自动重启，Ctrl+C 正常退出
+# 充电桩监控系统 - 主入口
+# 启动 FastAPI HTTP 服务 + 后台定时检测
 # =================================================================
 
-import time
+import uvicorn
 
-from server import start_server
+from config import HTTP_PORT
+from server import app, start_background_checker
 
 if __name__ == "__main__":
-    while True:
-        try:
-            start_server()
-            break
-        except KeyboardInterrupt:
-            break
-        except Exception as e:  # noqa: BLE001
-            print(f"\n⚠ 服务异常退出: {e}")
-            print("5 秒后自动重启...\n")
-            time.sleep(5)
+    start_background_checker()
+    uvicorn.run(app, host="0.0.0.0", port=HTTP_PORT, log_level="warning")

@@ -1,6 +1,20 @@
 *.db
 *.log
+*.pyc
 __pycache__/
 
 # 抓包文件
 charge-network.saz
+
+# uv 包管理器
+.venv/
+
+# 环境变量
+.env
+
+# 构建产物
+dist/
+*.egg-info/
+
+.vscode/
+!.vscode/settings.json

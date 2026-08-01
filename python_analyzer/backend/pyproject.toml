@@ -1,0 +1,12 @@
+[project]
+name = "charging-monitor"
+version = "1.0.0"
+description = "充电桩状态监控系统"
+requires-python = ">=3.13"
+dependencies = [
+    "requests>=2.32.0",
+    "urllib3>=2.0.0",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "python-dotenv>=1.0",
+]
