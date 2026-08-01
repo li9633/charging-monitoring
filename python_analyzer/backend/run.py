@@ -11,7 +11,7 @@ import time
 SIGNAL_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".restart_signal")
 
 while True:
-    print("🚀 启动服务...")
+    print("启动服务...")
     proc = subprocess.Popen([sys.executable, "main.py"], env=os.environ)
 
     try:

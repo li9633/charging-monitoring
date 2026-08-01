@@ -6,21 +6,20 @@
 import logging
 import sqlite3
 import threading
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI
 from fastapi.responses import FileResponse, RedirectResponse
 
-from analyzer import get_history_data, get_report_data
-from api import check_offline_piles
 from config import (
+    API_PREFIX,
     CHECK_INTERVAL,
-    MemoryLogHandler,
-    pile_tag_map,
-    setup_logging,
 )
-from db import cleanup_old_data, init_db
+from controller.pile_controller import router as pile_router
+from controller.system_controller import router as system_router
+from mapper.pile_mapper import delete_old_data, init_db
+from service.monitor_service import check_offline_piles
+from utils.log_utils import setup_logging
 
 DIST_DIR = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 app = FastAPI(
@@ -31,50 +30,9 @@ app = FastAPI(
 shutdown_event = threading.Event()
 logger = logging.getLogger(__name__)
 
-
-@app.get("/api/report")
-async def api_report(
-    tag: str = Query(None),
-    pile_no: str = Query(None),
-    start_date: str = Query(None),
-    end_date: str = Query(None),
-):
-    today = datetime.now(tz=timezone(timedelta(hours=8))).strftime("%Y-%m-%d")
-    if start_date is None:
-        start_date = today
-    if end_date is None:
-        end_date = today
-    return get_report_data(tag_filter=tag, pile_no_filter=pile_no, start_date=start_date, end_date=end_date)
-
-
-@app.get("/api/history")
-async def api_history(
-    tag: str = Query(None),
-    pile_no: str = Query(None),
-):
-    """历史分析接口：基于全部数据进行分析"""
-    return get_history_data(tag_filter=tag, pile_no_filter=pile_no)
-
-
-@app.get("/api/logs")
-async def api_logs(
-    level: str = Query(None),
-    limit: int = Query(100),
-):
-    """返回后端运行日志，支持按级别筛选"""
-    logs = MemoryLogHandler.get_logs(level=level, limit=limit)
-    return {"logs": logs, "total": len(logs)}
-
-
-@app.get("/api/tags")
-async def api_tags():
-    """返回所有可用标签及对应桩号"""
-    tags = {}
-    for pile, tag in pile_tag_map.items():
-        if tag not in tags:
-            tags[tag] = []
-        tags[tag].append(pile)
-    return {"tags": tags, "all_tags": list(tags.keys())}
+# ===== 注册路由（类似 Spring Boot 的 @RequestMapping） =====
+app.include_router(pile_router, prefix=f"{API_PREFIX}/pile")
+app.include_router(system_router, prefix=f"{API_PREFIX}/system")
 
 
 @app.get("/health", tags=["系统"])
@@ -102,7 +60,7 @@ def check_loop():
         try:
             logger.info("开始新一轮检测...")
             check_offline_piles()
-            cleanup_old_data()
+            delete_old_data()
             logger.info("本轮完成，%s 秒后进行下一轮", CHECK_INTERVAL)
         except (OSError, ValueError, sqlite3.Error) as e:
             logger.error("检测异常: %s", e)

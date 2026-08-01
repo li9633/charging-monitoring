@@ -7,37 +7,38 @@ import os
 import threading
 import time as time_module
 
-from flask import Blueprint, request
+from fastapi import APIRouter, Query
 
 from config import is_dev
 from model.result import fail, ok, success
 from utils.log_utils import MemoryLogHandler
 
-system_bp = Blueprint("system", __name__)
+router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@system_bp.route("/logs")
-def logs():
-    level = request.args.get("level", None)
-    limit = request.args.get("limit", "100")
+@router.get("/logs")
+async def logs(
+    level: str = Query(None),
+    limit: str = Query("100"),
+):
     limit = int(limit) if limit.isdigit() else 100
     logs_data = MemoryLogHandler.get_logs(level=level, limit=limit)
     return ok({"logs": logs_data, "total": len(logs_data)})
 
 
-@system_bp.route("/health")
-def health():
+@router.get("/health")
+async def health():
     return ok({"status": "ok"})
 
 
-@system_bp.route("/version")
-def version():
+@router.get("/version")
+async def version():
     return ok({"version": 2})
 
 
-@system_bp.route("/restart", methods=["POST"])
-def restart():
+@router.post("/restart")
+async def restart():
     if not is_dev():
         return fail("仅开发模式可用", 403)
 
