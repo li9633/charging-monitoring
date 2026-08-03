@@ -5,14 +5,15 @@ const api = axios.create({
   timeout: 10000,
 })
 
-
 api.interceptors.response.use(
   (response) => {
     const body = response.data
     if (body && typeof body.code === 'number') {
       if (body.code !== 200) {
-        const err: any = new Error(body.message || '请求失败')
-        err.response = { status: body.code, data: body }
+        const err: Error & { response?: { status: number; data: unknown } } = Object.assign(
+          new Error(body.message || '请求失败'),
+          { response: { status: body.code, data: body } },
+        )
         return Promise.reject(err)
       }
       return body.data ?? null

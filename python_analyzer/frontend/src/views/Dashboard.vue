@@ -1,43 +1,18 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { getReport, getTags } from '@/api/modules/pile'
+import type { ReportResponse, PileData, HourData } from '@/api/modules/pile'
 import StatCards from '@/components/StatCards.vue'
 import PileCard from '@/components/PileCard.vue'
 
-interface HourData {
-  hour: number
-  label: string
-  checks: number
-  offline: number
-  rate: number
-  css_class: string
-}
+defineOptions({ name: 'DashboardView' })
 
-interface PileData {
-  pile_no: string
-  location: string
-  loc_display: string
-  total_checks: number
-  total_offline: number
-  online: number
-  offline_rate: number
-  status: string
-  status_color: string
-  suspicious_ranges: string
-  hours: HourData[]
+interface PileWithUI extends PileData {
   activeNames: string[]
   tagType: 'danger' | 'warning' | 'success'
 }
 
-interface ReportData {
-  min_time: string
-  max_time: string
-  total: number
-  last_check: string
-  piles: PileData[]
-}
-
-const data = ref<ReportData | null>(null)
+const data = ref<ReportResponse | null>(null)
 const tags = ref<string[]>([])
 const selectedTag = ref('')
 const selectedPeriod = ref('today')
@@ -61,7 +36,7 @@ function daysAgo(n: number) {
   return fmtDate(d)
 }
 
-const sortedPiles = computed<PileData[]>(() => {
+const sortedPiles = computed<PileWithUI[]>(() => {
   if (!data.value) return []
   return [...data.value.piles]
     .map((p) => ({

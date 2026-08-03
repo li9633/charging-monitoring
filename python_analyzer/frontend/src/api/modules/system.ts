@@ -1,3 +1,4 @@
+import type { AxiosRequestConfig } from 'axios'
 import api from '@/api/request'
 
 export interface LogEntry {
@@ -11,18 +12,30 @@ export interface LogsResponse {
   total: number
 }
 
-export function getLogs(params: { level?: string; limit?: number }): Promise<LogsResponse> {
-  return api.get('/system/logs', { params }) as any
+export interface HealthResponse {
+  status: string
 }
 
-export function healthCheck(): Promise<any> {
-  return api.get('/system/health', { skipErrorHandler: true } as any) as any
+export interface RestartResponse {
+  message: string
+}
+
+function noErrorHandler(): AxiosRequestConfig {
+  return { skipErrorHandler: true } as AxiosRequestConfig
+}
+
+export function getLogs(params: { level?: string; limit?: number }): Promise<LogsResponse> {
+  return api.get('/system/logs', { params }) as Promise<LogsResponse>
+}
+
+export function healthCheck(): Promise<HealthResponse> {
+  return api.get('/system/health', noErrorHandler()) as Promise<HealthResponse>
 }
 
 export function getVersion(): Promise<{ version: number }> {
-  return api.get('/system/version') as any
+  return api.get('/system/version') as Promise<{ version: number }>
 }
 
-export function restartServer(): Promise<any> {
-  return api.post('/system/restart', undefined, { skipErrorHandler: true } as any) as any
+export function restartServer(): Promise<RestartResponse> {
+  return api.post('/system/restart', undefined, noErrorHandler()) as Promise<RestartResponse>
 }

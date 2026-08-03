@@ -4,7 +4,6 @@ import { getLogs } from '@/api/modules/system'
 import type { LogEntry } from '@/api/modules/system'
 
 const REFRESH_INTERVAL = 3000
-const levels = ['', 'DEBUG', 'INFO', 'WARNING', 'ERROR'] as const
 
 const logs = ref<LogEntry[]>([])
 const currentLevel = ref('')

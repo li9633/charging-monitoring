@@ -3,6 +3,8 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { healthCheck } from '@/api/modules/system'
 
+defineOptions({ name: 'RestartingView' })
+
 const router = useRouter()
 const route = useRoute()
 

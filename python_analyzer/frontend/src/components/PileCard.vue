@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 interface HourData {
   hour: number
   label: string
@@ -24,9 +25,11 @@ interface PileData {
   tagType: 'danger' | 'warning' | 'success'
 }
 
-defineProps<{
+const props = defineProps<{
   pile: PileData
 }>()
+
+const collapseActive = ref<string[]>([])
 
 function heatClass(css: string): string {
   return { d: 'danger', w: 'warning', g: 'success' }[css] ?? 'info'
@@ -79,7 +82,7 @@ function heatClass(css: string): string {
       style="margin-top: 10px"
     />
 
-    <el-collapse style="margin-top: 12px" v-model="pile.activeNames">
+    <el-collapse style="margin-top: 12px" v-model="collapseActive">
       <el-collapse-item title="详细数据" name="detail">
         <el-table :data="pile.hours" size="small" stripe max-height="360">
           <el-table-column prop="label" label="时段" width="80" align="center" />

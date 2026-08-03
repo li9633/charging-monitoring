@@ -28,9 +28,10 @@ async function handleRestart() {
   restarting.value = true
   try {
     await restartServer()
-  } catch (e: any) {
-    if (e?.response?.status === 403) {
-      ElMessage.warning(e.response.data?.message || '仅开发模式可用')
+  } catch (e: unknown) {
+    const err = e as { response?: { status?: number; data?: { message?: string } } }
+    if (err?.response?.status === 403) {
+      ElMessage.warning(err.response.data?.message || '仅开发模式可用')
       restarting.value = false
       return
     }

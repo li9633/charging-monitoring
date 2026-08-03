@@ -37,11 +37,6 @@ const data = ref<ReportData | null>(null)
 const loading = ref(true)
 const error = ref(false)
 
-const sortedPiles = computed<PileData[]>(() => {
-  if (!data.value) return []
-  return [...data.value.piles].sort((a, b) => a.pile_no.localeCompare(b.pile_no))
-})
-
 const stats = computed(() => {
   if (!data.value) return null
   const piles = data.value.piles
