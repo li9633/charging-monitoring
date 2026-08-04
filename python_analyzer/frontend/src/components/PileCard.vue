@@ -25,7 +25,7 @@ interface PileData {
   tagType: 'danger' | 'warning' | 'success'
 }
 
-const props = defineProps<{
+defineProps<{
   pile: PileData
 }>()
 

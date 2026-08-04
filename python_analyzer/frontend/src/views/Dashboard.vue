@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { getReport, getTags } from '@/api/modules/pile'
-import type { ReportResponse, PileData, HourData } from '@/api/modules/pile'
+import type { ReportResponse, PileData } from '@/api/modules/pile'
 import StatCards from '@/components/StatCards.vue'
 import PileCard from '@/components/PileCard.vue'
 
